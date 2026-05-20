@@ -423,6 +423,24 @@ internal object SessionPlatformCommandRegistry {
                 )
             },
             SessionPlatformCommandDefinition(
+                name = "/screen",
+                title = "当前屏幕",
+                description = "读取当前前台屏幕的结构化摘要、视觉提示和可操作候选。",
+                usage = "/screen [--preferred-package com.tencent.mm] [--limit 10]",
+                category = SessionPlatformCommandCategory.PRODUCT,
+                recommended = true,
+                aliases = listOf("/screen-info"),
+            ) { args ->
+                SessionPlatformCommand(
+                    capability = SessionCapabilityKey.READ_CURRENT_SCREEN,
+                    payload =
+                        mapOf(
+                            "preferred_package" to args.option("preferred-package", "preferred_package"),
+                            "limit" to args.option("limit"),
+                        ),
+                )
+            },
+            SessionPlatformCommandDefinition(
                 name = "/approval-center",
                 title = "审批中心",
                 description = "读取 product shell 里的审批中心与治理控制摘要。",

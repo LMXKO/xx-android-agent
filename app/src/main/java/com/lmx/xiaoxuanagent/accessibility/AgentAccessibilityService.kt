@@ -44,7 +44,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlin.coroutines.resume
 
-class AgentAccessibilityService : AccessibilityService() {
+class AgentAccessibilityService : AccessibilityService(), CurrentScreenObservationSource {
     companion object {
         private const val TAG = "TbAgent"
         private const val MAX_SCREENSHOT_EDGE = 960
@@ -281,6 +281,14 @@ class AgentAccessibilityService : AccessibilityService() {
         }
     }
 
+    override suspend fun inspectCurrentScreen(
+        preferredPackageName: String,
+    ): IndexedScreenObservation? =
+        observeCurrentScreen(
+            preferredPackageName = preferredPackageName.takeIf { it.isNotBlank() },
+            preferTaskProfileFallback = false,
+        )
+
     private fun handleManualCommand(root: android.view.accessibility.AccessibilityNodeInfo) {
         when (val command = DebugAgentStore.consumePendingCommand()) {
             is VerificationCommand.VerifySearchInput -> {
@@ -303,8 +311,15 @@ class AgentAccessibilityService : AccessibilityService() {
 
     private suspend fun observeCurrentScreen(
         preferredPackageName: String? = null,
+        preferTaskProfileFallback: Boolean = true,
     ): IndexedScreenObservation? {
-        val root = resolveBestRoot(preferredPackageName ?: SessionRuntime.Planning.currentTaskProfile().packageName) ?: return null
+        val preferredPackage =
+            when {
+                !preferredPackageName.isNullOrBlank() -> preferredPackageName
+                preferTaskProfileFallback -> SessionRuntime.Planning.currentTaskProfile().packageName
+                else -> null
+            }
+        val root = resolveBestRoot(preferredPackage) ?: return null
         val foregroundPackage = root.packageName?.toString().orEmpty()
         val pageState = detectPageState(foregroundPackage, root)
         val indexedObservation = ObservationBuilder.buildIndexed(root, pageState)

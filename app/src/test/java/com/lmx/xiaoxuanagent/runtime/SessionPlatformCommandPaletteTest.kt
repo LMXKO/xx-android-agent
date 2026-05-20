@@ -74,6 +74,19 @@ class SessionPlatformCommandPaletteTest {
     }
 
     @Test
+    fun `parse supports current screen inspection command`() {
+        val command =
+            SessionPlatformCommandPalette.parse(
+                "/screen --preferred-package com.tencent.mm --limit 6",
+            )
+                ?: error("command should parse")
+
+        assertEquals(SessionCapabilityKey.READ_CURRENT_SCREEN, command.capability)
+        assertEquals("com.tencent.mm", command.payload["preferred_package"])
+        assertEquals("6", command.payload["limit"])
+    }
+
+    @Test
     fun `resolve help command supports aliases and command lookup`() {
         val resolution = SessionPlatformCommandPalette.resolve("/h /viewer")
 
@@ -127,6 +140,16 @@ class SessionPlatformCommandPaletteTest {
         assertTrue(resolution.command != null)
         assertEquals(SessionCapabilityKey.RECALL_MEMORY, resolution.command?.capability)
         assertEquals("张三 的电话", resolution.command?.query)
+    }
+
+    @Test
+    fun `resolve supports natural language current screen intent`() {
+        val resolution = SessionPlatformCommandPalette.resolve("看一下当前屏幕 应用 com.tencent.mm 显示 4")
+
+        assertTrue(resolution.command != null)
+        assertEquals(SessionCapabilityKey.READ_CURRENT_SCREEN, resolution.command?.capability)
+        assertEquals("com.tencent.mm", resolution.command?.payload?.get("preferred_package"))
+        assertEquals("4", resolution.command?.payload?.get("limit"))
     }
 
     @Test
@@ -185,9 +208,11 @@ class SessionPlatformCommandPaletteTest {
     @Test
     fun `registry help and suggest expose new viewer and governance commands`() {
         val viewerHelp = SessionPlatformCommandRegistry.helpLines("/viewer")
+        val screenHelp = SessionPlatformCommandRegistry.helpLines("/screen")
         val governanceSuggestions = SessionPlatformCommandRegistry.suggest("govern", limit = 4)
 
         assertTrue(viewerHelp.any { it.contains("usage=/viewer") })
+        assertTrue(screenHelp.any { it.contains("usage=/screen") })
         assertFalse(governanceSuggestions.isEmpty())
         assertTrue(governanceSuggestions.any { it.contains("/governance") })
     }

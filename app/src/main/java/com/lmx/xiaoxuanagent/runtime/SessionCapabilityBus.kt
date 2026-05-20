@@ -43,6 +43,7 @@ enum class SessionCapabilityKey {
     READ_COMMAND_CATALOG,
     READ_PRODUCT_SHELL,
     READ_PRODUCT_DIAGNOSTICS,
+    READ_CURRENT_SCREEN,
     READ_REGRESSION_PLAN,
     RUN_REGRESSION_PLAN,
     READ_PRODUCT_POLICY,
@@ -327,6 +328,11 @@ object SessionCapabilityBus {
                 key = SessionCapabilityKey.READ_PRODUCT_DIAGNOSTICS,
                 title = "Read Product Diagnostics",
                 description = "读取 product shell diagnostics 与 analytics 摘要。",
+            ),
+            SessionCapabilityDescriptor(
+                key = SessionCapabilityKey.READ_CURRENT_SCREEN,
+                title = "Read Current Screen",
+                description = "读取当前前台屏幕的无障碍树、视觉提示和可操作候选。",
             ),
             SessionCapabilityDescriptor(
                 key = SessionCapabilityKey.READ_REGRESSION_PLAN,
@@ -650,6 +656,7 @@ object SessionCapabilityBus {
             SessionCapabilityKey.READ_COMMAND_CATALOG,
             SessionCapabilityKey.READ_PRODUCT_SHELL,
             SessionCapabilityKey.READ_PRODUCT_DIAGNOSTICS,
+            SessionCapabilityKey.READ_CURRENT_SCREEN,
             SessionCapabilityKey.READ_REGRESSION_PLAN,
             SessionCapabilityKey.RUN_REGRESSION_PLAN,
             SessionCapabilityKey.READ_PRODUCT_POLICY,

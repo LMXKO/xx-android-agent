@@ -15,7 +15,7 @@ internal object SessionPlatformNaturalIntentInterpreter {
 
         resolveHelp(normalized)?.let { return it }
         resolveSessionControl(input, normalized, sessionId)?.let { return it }
-        resolveAssistantShell(normalized, sessionId)?.let { return it }
+        resolveAssistantShell(input, normalized, sessionId)?.let { return it }
         resolveSearchIntent(input, normalized, sessionId)?.let { return it }
 
         return SessionPlatformCommandResolution(
@@ -60,6 +60,7 @@ internal object SessionPlatformNaturalIntentInterpreter {
     }
 
     private fun resolveAssistantShell(
+        input: String,
         normalized: String,
         sessionId: String,
     ): SessionPlatformCommandResolution? {
@@ -75,6 +76,32 @@ internal object SessionPlatformNaturalIntentInterpreter {
                 command = SessionPlatformCommand(capability = SessionCapabilityKey.READ_COMMAND_CENTER),
                 summary = "已按自然语言意图解析为读取命令中心。",
                 lines = listOf("intent=read_command_center"),
+            )
+        }
+        if (normalized.containsAny("当前屏幕", "当前页面", "看屏幕", "读屏", "屏幕摘要", "页面摘要", "结构化屏幕")) {
+            val preferredPackage = extractPackageName(input)
+            val limit = limitRegex.find(normalized)?.groupValues?.getOrNull(1).orEmpty()
+            return SessionPlatformCommandResolution(
+                command =
+                    SessionPlatformCommand(
+                        capability = SessionCapabilityKey.READ_CURRENT_SCREEN,
+                        payload =
+                            buildMap {
+                                if (preferredPackage.isNotBlank()) {
+                                    put("preferred_package", preferredPackage)
+                                }
+                                if (limit.isNotBlank()) {
+                                    put("limit", limit)
+                                }
+                            },
+                    ),
+                summary = "已按自然语言意图解析为读取当前屏幕。",
+                lines =
+                    buildList {
+                        add("intent=read_current_screen")
+                        if (preferredPackage.isNotBlank()) add("preferred_package=$preferredPackage")
+                        if (limit.isNotBlank()) add("limit=$limit")
+                    },
             )
         }
         if (normalized.containsAny("为什么这么做", "为什么这样做", "解释日志", "why log", "为什么卡住")) {
@@ -444,4 +471,11 @@ internal object SessionPlatformNaturalIntentInterpreter {
             normalized.containsAny("ask", "询问", "确认", "总是询问") -> "ask"
             else -> ""
         }
+
+    private fun extractPackageName(
+        input: String,
+    ): String {
+        val match = Regex("""(?:package|pkg|包名|应用)\s*[:=]?\s*([a-zA-Z0-9_.]+)""").find(input)
+        return match?.groupValues?.getOrNull(1).orEmpty()
+    }
 }

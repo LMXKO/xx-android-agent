@@ -511,6 +511,10 @@ internal suspend fun dispatchPlatformAssistantCapability(
             )
         }
 
+        SessionCapabilityKey.READ_CURRENT_SCREEN -> {
+            CurrentScreenObservationCapabilitySupport.inspectCurrentScreen(request)
+        }
+
         SessionCapabilityKey.READ_REGRESSION_PLAN -> {
             val aggregate = HarnessStore.readAggregateSnapshot() ?: HarnessStore.AggregateSnapshot()
             val snapshot =

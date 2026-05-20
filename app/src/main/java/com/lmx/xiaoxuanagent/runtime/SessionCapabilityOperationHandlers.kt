@@ -675,6 +675,7 @@ internal suspend fun dispatchPlatformControlCapability(
         SessionCapabilityKey.RUN_SESSION_COMPENSATION,
         SessionCapabilityKey.READ_PRODUCT_SHELL,
         SessionCapabilityKey.READ_PRODUCT_DIAGNOSTICS,
+        SessionCapabilityKey.READ_CURRENT_SCREEN,
         SessionCapabilityKey.READ_REGRESSION_PLAN,
         SessionCapabilityKey.RUN_REGRESSION_PLAN,
         SessionCapabilityKey.REFRESH_PRODUCT_SHELL,
