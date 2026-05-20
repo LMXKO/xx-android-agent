@@ -1,0 +1,14 @@
+<resources>
+    <color name="brand_navy">#17314E</color>
+    <color name="brand_orange">#F08A24</color>
+    <color name="brand_orange_deep">#D96718</color>
+    <color name="brand_cream">#FFF7EE</color>
+    <color name="surface_card">#FFFDF9</color>
+    <color name="surface_soft">#F4E8D7</color>
+    <color name="surface_tint">#F7EFE3</color>
+    <color name="text_primary">#1B2430</color>
+    <color name="text_secondary">#5C6675</color>
+    <color name="line_soft">#E5D5BE</color>
+    <color name="success_green">#2F7A53</color>
+    <color name="launcher_background">#F4DDC1</color>
+</resources>

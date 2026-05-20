@@ -1,0 +1,16 @@
+.DS_Store
+.idea/
+*.iml
+.gradle/
+**/build/
+local.properties
+.env
+.env.local
+
+# Local research, generated traces, and large artifacts not intended for OSS.
+ref/
+doc/
+model/
+tmp/
+tb/
+.tmp/
