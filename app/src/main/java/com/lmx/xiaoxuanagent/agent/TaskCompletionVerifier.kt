@@ -112,6 +112,7 @@ object TaskCompletionVerifier {
             AgentAction.OpenStopwatch,
             is AgentAction.DialNumber,
             is AgentAction.DraftSms,
+            is AgentAction.LookupContact,
             is AgentAction.ReadSessionHistory,
             is AgentAction.SearchArtifacts,
             is AgentAction.RecallMemory,

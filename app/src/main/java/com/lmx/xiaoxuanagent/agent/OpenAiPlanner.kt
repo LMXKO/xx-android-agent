@@ -371,43 +371,44 @@ class OpenAiPlanner(
         22. {"action":"insert_calendar_event","title":"周会","details":"准备周报","when_label":"明天上午","reason":"..."}
         23. {"action":"dial_number","number":"13800138000","contact_name":"张三","reason":"..."}
         24. {"action":"draft_sms","recipient":"13800138000","body":"我晚点到","reason":"..."}
-        25. {"action":"wait","reason":"..."}
-        26. {"action":"finish","summary":"...","reason":"..."}
-        27. {"action":"fail","reason":"..."}
-        28. {"action":"focus_primary_input","reason":"..."}
-        29. {"action":"populate_primary_input","text":"韩威","reason":"..."}
-        30. {"action":"submit_primary_action","hint":"搜索","reason":"..."}
-        31. {"action":"dismiss_interrupt","hint":"关闭弹窗","reason":"..."}
-        32. {"action":"open_best_candidate","target_text":"韩威","role_hint":"conversation","reason":"..."}
-        33. {"action":"scroll_for_more","direction":"down","reason":"..."}
-        34. {"action":"return_to_target_app","package_name":"$targetPackageName","reason":"..."}
-        35. {"action":"read_session_history","query":"上次搜索失败原因","reason":"..."}
-        36. {"action":"search_artifacts","query":"评论区截图","artifact_type":"planning_screenshot","reason":"..."}
-        37. {"action":"recall_memory","query":"用户常用导航 App 偏好","reason":"..."}
-        38. {"action":"read_session_notebook","reason":"..."}
-        39. {"action":"write_session_note","note":"当前已经定位到正确会话，但发送前需确认正文","tag":"checkpoint","reason":"..."}
-        40. {"action":"search_tools","query":"需要找能做网页检索和待办收口的工具","reason":"..."}
-        41. {"action":"web_search","query":"高德地图 官网 客服","reason":"..."}
-        42. {"action":"web_fetch","url":"<web_url>","reason":"..."}
-        43. {"action":"read_connected_app_capabilities","app_id":"amap_assistant","reason":"..."}
-        44. {"action":"execute_connected_app_action","app_id":"amap_assistant","operation":"open_route","primary":"虹桥火车站","secondary":"","note":"优先走结构化地图路由","reason":"..."}
-        45. {"action":"read_notifications","package_name":"com.tencent.mm","limit":5,"reason":"..."}
-        46. {"action":"reply_notification","notification_key":"key_123","reply_text":"我稍后回复你","action_hint":"reply","reason":"..."}
-        47. {"action":"media_control","command":"pause","reason":"..."}
-        48. {"action":"adjust_volume","direction":"lower","stream":"music","step":2,"reason":"..."}
-        49. {"action":"open_device_panel","panel":"bluetooth","reason":"..."}
-        50. {"action":"capture_screenshot","note":"记录当前确认页","reason":"..."}
-        51. {"action":"capture_photo","note":"打开相机拍照上传","reason":"..."}
-        52. {"action":"read_todo_board","reason":"..."}
-        53. {"action":"write_todo_board","content":"- 回到目标会话\n- 确认正文\n- 发送后截图","mode":"append","reason":"..."}
-        54. {"action":"delegate_local_agent","task":"并行检查历史截图里最近一次失败原因","summary":"让本地 worker 去做旁路排障","role":"explore","reason":"..."}
-        55. {"action":"read_worker_mailbox","target":"","include_consumed":false,"limit":8,"reason":"..."}
-        56. {"action":"reply_worker_message","message_id":"mail_123","decision":"approve","note":"继续沿这个方向补证据","reason":"..."}
-        57. {"action":"ack_worker_message","message_id":"mail_123","note":"主线程已吸收这条结果","reason":"..."}
-        58. {"action":"read_session_memory_file","reason":"..."}
-        59. {"action":"read_worker_roles","reason":"..."}
-        60. {"action":"read_worker_status","target":"","include_children":true,"reason":"..."}
-        61. {"action":"merge_worker_result","message_id":"mail_123","note":"把这条旁路排障结果收口到主线程","reason":"..."}
+        25. {"action":"lookup_contact","contact_name":"张三","limit":5,"reason":"..."}
+        26. {"action":"wait","reason":"..."}
+        27. {"action":"finish","summary":"...","reason":"..."}
+        28. {"action":"fail","reason":"..."}
+        29. {"action":"focus_primary_input","reason":"..."}
+        30. {"action":"populate_primary_input","text":"韩威","reason":"..."}
+        31. {"action":"submit_primary_action","hint":"搜索","reason":"..."}
+        32. {"action":"dismiss_interrupt","hint":"关闭弹窗","reason":"..."}
+        33. {"action":"open_best_candidate","target_text":"韩威","role_hint":"conversation","reason":"..."}
+        34. {"action":"scroll_for_more","direction":"down","reason":"..."}
+        35. {"action":"return_to_target_app","package_name":"$targetPackageName","reason":"..."}
+        36. {"action":"read_session_history","query":"上次搜索失败原因","reason":"..."}
+        37. {"action":"search_artifacts","query":"评论区截图","artifact_type":"planning_screenshot","reason":"..."}
+        38. {"action":"recall_memory","query":"用户常用导航 App 偏好","reason":"..."}
+        39. {"action":"read_session_notebook","reason":"..."}
+        40. {"action":"write_session_note","note":"当前已经定位到正确会话，但发送前需确认正文","tag":"checkpoint","reason":"..."}
+        41. {"action":"search_tools","query":"需要找能做网页检索和待办收口的工具","reason":"..."}
+        42. {"action":"web_search","query":"高德地图 官网 客服","reason":"..."}
+        43. {"action":"web_fetch","url":"<web_url>","reason":"..."}
+        44. {"action":"read_connected_app_capabilities","app_id":"amap_assistant","reason":"..."}
+        45. {"action":"execute_connected_app_action","app_id":"amap_assistant","operation":"open_route","primary":"虹桥火车站","secondary":"","note":"优先走结构化地图路由","reason":"..."}
+        46. {"action":"read_notifications","package_name":"com.tencent.mm","limit":5,"reason":"..."}
+        47. {"action":"reply_notification","notification_key":"key_123","reply_text":"我稍后回复你","action_hint":"reply","reason":"..."}
+        48. {"action":"media_control","command":"pause","reason":"..."}
+        49. {"action":"adjust_volume","direction":"lower","stream":"music","step":2,"reason":"..."}
+        50. {"action":"open_device_panel","panel":"bluetooth","reason":"..."}
+        51. {"action":"capture_screenshot","note":"记录当前确认页","reason":"..."}
+        52. {"action":"capture_photo","note":"打开相机拍照上传","reason":"..."}
+        53. {"action":"read_todo_board","reason":"..."}
+        54. {"action":"write_todo_board","content":"- 回到目标会话\n- 确认正文\n- 发送后截图","mode":"append","reason":"..."}
+        55. {"action":"delegate_local_agent","task":"并行检查历史截图里最近一次失败原因","summary":"让本地 worker 去做旁路排障","role":"explore","reason":"..."}
+        56. {"action":"read_worker_mailbox","target":"","include_consumed":false,"limit":8,"reason":"..."}
+        57. {"action":"reply_worker_message","message_id":"mail_123","decision":"approve","note":"继续沿这个方向补证据","reason":"..."}
+        58. {"action":"ack_worker_message","message_id":"mail_123","note":"主线程已吸收这条结果","reason":"..."}
+        59. {"action":"read_session_memory_file","reason":"..."}
+        60. {"action":"read_worker_roles","reason":"..."}
+        61. {"action":"read_worker_status","target":"","include_children":true,"reason":"..."}
+        62. {"action":"merge_worker_result","message_id":"mail_123","note":"把这条旁路排障结果收口到主线程","reason":"..."}
         
         规则:
         - 一次只选一个动作。
@@ -431,7 +432,8 @@ class OpenAiPlanner(
         - 如果需要从一组候选里打开最相关对象，但 element_id 不稳定，可使用 open_best_candidate，并补充 target_text 或 role_hint。
         - 如果只是继续探索更多候选，而不是绑定具体容器，可使用 scroll_for_more。
         - 如果当前已跑偏到别的 App，但要回到目标 App 继续执行，可使用 return_to_target_app。
-        - 如果任务本质上是打开系统设置、发起分享、建闹钟、建计时器、开秒表、拨号、发短信草稿或建日历事件，优先使用 open_settings / share_text / create_alarm / create_timer / open_stopwatch / dial_number / draft_sms / insert_calendar_event，不要退化成 GUI 探索。
+        - 如果任务本质上是打开系统设置、发起分享、建闹钟、建计时器、开秒表、拨号、发短信草稿、查联系人或建日历事件，优先使用 open_settings / share_text / create_alarm / create_timer / open_stopwatch / dial_number / draft_sms / lookup_contact / insert_calendar_event，不要退化成 GUI 探索。
+        - 如果拨号或短信任务只给了联系人姓名、没有稳定号码，可先用 lookup_contact；如果已经确认姓名，也可以直接把姓名传给 dial_number.contact_name 或 draft_sms.recipient 让系统联系人解析兜底。
         - 如果任务是在回顾历史、查之前做过什么、找上次失败原因、找中间证据或回放线索，优先使用 read_session_history / search_artifacts / read_session_notebook / recall_memory，不要先盲目操作当前页面。
         - 如果已经得到稳定中间结论、纠偏策略或需要给后续轮次留锚点，可使用 write_session_note 把结论写进当前 session notebook。
         - 如果你不确定有哪些本地能力最适合当前任务，先用 search_tools 检索工具能力，不要盲目回退到低层 GUI 动作。
@@ -1101,6 +1103,17 @@ class OpenAiPlanner(
         resumeContext: ResumeContext,
     ): Map<String, Any> = resumeContextPayload(resumeContext)
 
+    internal fun debugParseDecision(
+        rawContent: String,
+        observation: ScreenObservation,
+        targetPackageName: String,
+    ): AgentDecision =
+        parseDecision(
+            rawContent = rawContent,
+            observation = observation,
+            targetPackageName = targetPackageName,
+        )
+
     private fun memoryContextPayload(
         memoryContext: PlanningMemoryContext,
     ): Map<String, List<String>> =
@@ -1544,6 +1557,11 @@ class OpenAiPlanner(
                 AgentAction.DraftSms(
                     recipient = json.optString("recipient"),
                     body = json.optString("body"),
+                )
+            "lookup_contact" ->
+                AgentAction.LookupContact(
+                    contactName = json.optString("contact_name"),
+                    limit = json.optInt("limit", 5),
                 )
             "read_notifications" ->
                 AgentAction.ReadNotifications(

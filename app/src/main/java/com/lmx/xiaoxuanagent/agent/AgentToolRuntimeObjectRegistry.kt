@@ -45,6 +45,7 @@ private fun placeholderRuntimeAction(
         AgentAction.InsertCalendarEvent("", "", "").toolName -> AgentAction.InsertCalendarEvent("", "", "")
         AgentAction.DialNumber("").toolName -> AgentAction.DialNumber("")
         AgentAction.DraftSms("").toolName -> AgentAction.DraftSms("")
+        AgentAction.LookupContact("").toolName -> AgentAction.LookupContact("")
         AgentAction.ReadNotifications().toolName -> AgentAction.ReadNotifications()
         AgentAction.ReplyNotification("", "").toolName -> AgentAction.ReplyNotification("", "")
         AgentAction.MediaControl("").toolName -> AgentAction.MediaControl("")
@@ -517,6 +518,8 @@ private data class DescriptorBackedToolRuntimeObject(
                         )
                     else -> AgentToolInputReview()
                 }
+
+            is AgentAction.LookupContact -> AgentToolInputReview()
 
             is AgentAction.RecallMemory ->
                 if (containsSensitive(action.query)) {

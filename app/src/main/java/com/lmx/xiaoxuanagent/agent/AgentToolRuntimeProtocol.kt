@@ -138,6 +138,14 @@ object AgentToolRuntimeProtocol {
             is AgentAction.ShareText -> requireNotBlank(action.text, "text")
             is AgentAction.CreateAlarm -> requireNotBlank(action.timeLabel, "time_label")
             is AgentAction.InsertCalendarEvent -> requireNotBlank(action.title, "title")
+            is AgentAction.DialNumber ->
+                if (action.number.isBlank() && action.contactName.isBlank()) {
+                    "number 与 contact_name 至少提供一项。"
+                } else {
+                    ""
+                }
+            is AgentAction.DraftSms -> requireNotBlank(action.recipient, "recipient")
+            is AgentAction.LookupContact -> requireNotBlank(action.contactName, "contact_name")
             is AgentAction.PopulatePrimaryInput -> requireNotBlank(action.text, "text")
             is AgentAction.SubmitPrimaryAction -> ""
             is AgentAction.DismissInterrupt -> ""

@@ -86,6 +86,7 @@ object ActionExecutor {
             AgentAction.InsertCalendarEvent("", "", "").toolName,
             AgentAction.DialNumber("").toolName,
             AgentAction.DraftSms("").toolName,
+            AgentAction.LookupContact("").toolName,
             AgentAction.ReadNotifications().toolName,
             AgentAction.ReplyNotification("", "").toolName,
             AgentAction.MediaControl("").toolName,
@@ -307,6 +308,9 @@ internal object SystemToolExecutor : AgentToolExecutor {
 
             is AgentAction.DraftSms ->
                 PlatformCommunicationUtilityService.draftSms(context.service, action.recipient, action.body)
+
+            is AgentAction.LookupContact ->
+                PlatformContactLookupToolService.lookup(context.service, action.contactName, action.limit)
 
             is AgentAction.ReadNotifications ->
                 PlatformNotificationToolService.readActive(action.packageName, action.limit)

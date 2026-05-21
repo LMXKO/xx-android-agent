@@ -157,11 +157,15 @@ object AgentToolSelectionPolicy {
             prefer("system.insert_calendar_event")
         }
         if (task.contains("打电话") || task.contains("拨号") || task.contains("电话")) {
-            prefer("system.dial_number")
+            prefer("system.lookup_contact", "system.dial_number")
             block("gui.tap_point", "gui.swipe")
         }
         if (task.contains("短信") || task.contains("发短信")) {
-            prefer("system.draft_sms")
+            prefer("system.lookup_contact", "system.draft_sms")
+            block("gui.tap_point", "gui.swipe")
+        }
+        if (task.contains("联系人") || task.contains("号码") || task.contains("手机号")) {
+            prefer("system.lookup_contact")
             block("gui.tap_point", "gui.swipe")
         }
         if (task.contains("分享") || task.contains("转给") || task.contains("发给自己")) {

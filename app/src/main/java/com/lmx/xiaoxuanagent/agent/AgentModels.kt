@@ -622,6 +622,15 @@ sealed interface AgentAction {
         override val toolName: String = "system.draft_sms"
     }
 
+    data class LookupContact(
+        val contactName: String,
+        val limit: Int = 5,
+    ) : AgentAction {
+        override val label: String = "lookup_contact(${contactName.take(20)})"
+        override val toolType: AgentActionToolType = AgentActionToolType.SYSTEM
+        override val toolName: String = "system.lookup_contact"
+    }
+
     data class ReadNotifications(
         val packageName: String = "",
         val limit: Int = 6,

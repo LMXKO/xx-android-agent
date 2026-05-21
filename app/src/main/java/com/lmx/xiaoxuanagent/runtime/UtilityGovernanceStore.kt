@@ -20,6 +20,7 @@ object UtilityGovernanceStore {
             "system.capture_photo",
             "system.create_timer",
             "system.open_stopwatch",
+            "system.lookup_contact",
             "system.dial_number",
             "system.draft_sms",
         )
