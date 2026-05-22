@@ -8,7 +8,6 @@ import android.content.Intent
 import android.graphics.Path
 import android.graphics.Rect
 import android.provider.AlarmClock
-import android.provider.CalendarContract
 import android.provider.Settings
 import android.view.accessibility.AccessibilityNodeInfo
 import com.lmx.xiaoxuanagent.AppLaunchResolver
@@ -296,12 +295,7 @@ internal object SystemToolExecutor : AgentToolExecutor {
             AgentAction.OpenStopwatch -> PlatformTimerToolService.openStopwatch(context.service)
 
             is AgentAction.InsertCalendarEvent ->
-                executeInsertCalendarEvent(
-                    service = context.service,
-                    title = action.title,
-                    details = action.details,
-                    whenLabel = action.whenLabel,
-                )
+                PlatformCalendarToolService.insertEvent(context.service, action.title, action.details, action.whenLabel)
 
             is AgentAction.DialNumber ->
                 PlatformCommunicationUtilityService.dialNumber(context.service, action.number, action.contactName)
@@ -463,34 +457,6 @@ internal object SystemToolExecutor : AgentToolExecutor {
             intent = intent,
             successMessage = "已尝试创建闹钟 ${timeLabel.ifBlank { "${time.first}:${time.second}" }}。",
             failureMessage = "创建闹钟失败。",
-        )
-    }
-
-    private fun executeInsertCalendarEvent(
-        service: AccessibilityService,
-        title: String,
-        details: String,
-        whenLabel: String,
-    ): AgentExecutionResult {
-        if (title.isBlank()) {
-            return AgentExecutionResult(
-                message = "日历事件标题为空，无法创建日程。",
-                keepRunning = false,
-            )
-        }
-        val intent =
-            Intent(Intent.ACTION_INSERT).apply {
-                data = CalendarContract.Events.CONTENT_URI
-                putExtra(CalendarContract.Events.TITLE, title.take(80))
-                details.takeIf { it.isNotBlank() }?.let { putExtra(CalendarContract.Events.DESCRIPTION, it.take(200)) }
-                whenLabel.takeIf { it.isNotBlank() }?.let { putExtra(CalendarContract.Events.EVENT_LOCATION, it.take(80)) }
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-        return runIntentAction(
-            service = service,
-            intent = intent,
-            successMessage = "已打开日历新建事件页面。",
-            failureMessage = "打开日历新建事件失败。",
         )
     }
 

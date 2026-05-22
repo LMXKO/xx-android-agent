@@ -504,6 +504,23 @@ private data class DescriptorBackedToolRuntimeObject(
                     AgentToolInputReview()
                 }
 
+            is AgentAction.InsertCalendarEvent ->
+                when {
+                    containsSensitive(action.title) || containsSensitive(action.details) ->
+                        AgentToolInputReview(
+                            behavior = "ask",
+                            summary = "calendar_payload_sensitive",
+                            detailLines = listOf("input_review=calendar_payload_sensitive"),
+                        )
+                    noteTooLong(action.details) ->
+                        AgentToolInputReview(
+                            behavior = "deny",
+                            summary = "calendar_details_too_large",
+                            detailLines = listOf("input_review=calendar_details_too_large", "input_length=${action.details.length}"),
+                        )
+                    else -> AgentToolInputReview()
+                }
+
             AgentAction.OpenStopwatch -> AgentToolInputReview()
 
             is AgentAction.DialNumber -> AgentToolInputReview()
