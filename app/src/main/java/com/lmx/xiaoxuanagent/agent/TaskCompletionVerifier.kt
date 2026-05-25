@@ -101,6 +101,7 @@ object TaskCompletionVerifier {
             is AgentAction.MediaControl,
             is AgentAction.AdjustVolume,
             is AgentAction.ReadDeviceStatus,
+            is AgentAction.ReadCurrentLocation,
             is AgentAction.SetBrightness,
             is AgentAction.SetDoNotDisturb,
             is AgentAction.SetBatterySaver,

@@ -77,6 +77,7 @@ object ActionVerifier {
                 is AgentAction.MediaControl,
                 is AgentAction.AdjustVolume,
                 is AgentAction.ReadDeviceStatus,
+                is AgentAction.ReadCurrentLocation,
                 is AgentAction.SetBrightness,
                 is AgentAction.SetDoNotDisturb,
                 is AgentAction.SetBatterySaver,
@@ -209,6 +210,7 @@ object ActionVerifier {
             is AgentAction.MediaControl -> ActionVerificationResult(true, "已发送媒体控制。", false)
             is AgentAction.AdjustVolume -> ActionVerificationResult(true, "已调节系统音量。", false)
             is AgentAction.ReadDeviceStatus -> ActionVerificationResult(true, "已读取设备状态。", false)
+            is AgentAction.ReadCurrentLocation -> ActionVerificationResult(true, "已读取当前位置。", false)
             is AgentAction.SetBrightness -> ActionVerificationResult(true, "已尝试设置屏幕亮度。", false)
             is AgentAction.SetDoNotDisturb -> ActionVerificationResult(true, "已尝试设置免打扰模式。", false)
             is AgentAction.SetBatterySaver -> ActionVerificationResult(true, "已处理省电模式调整。", false)

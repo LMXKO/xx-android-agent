@@ -186,6 +186,9 @@ object AgentToolSelectionPolicy {
         if (task.contains("蓝牙") || task.contains("wifi", ignoreCase = true) || task.contains("网络") || task.contains("手电")) {
             prefer("system.read_device_status", "system.open_device_panel")
         }
+        if (task.contains("当前位置") || task.contains("我在哪") || task.contains("在哪儿") || task.contains("附近") || task.contains("定位") || task.contains("location", ignoreCase = true)) {
+            prefer("system.read_current_location", "connected.execute_app_action")
+        }
         if (task.contains("亮度") || task.contains("屏幕亮") || task.contains("调亮") || task.contains("调暗")) {
             prefer("system.set_brightness", "system.read_device_status")
         }
@@ -278,6 +281,7 @@ object AgentToolSelectionPolicy {
             "system.adjust_volume",
             "system.open_device_panel",
             "system.read_device_status",
+            "system.read_current_location",
             "system.set_brightness",
             "system.set_do_not_disturb",
             "system.set_battery_saver",

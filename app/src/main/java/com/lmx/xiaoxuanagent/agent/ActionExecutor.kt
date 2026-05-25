@@ -92,6 +92,7 @@ object ActionExecutor {
             AgentAction.AdjustVolume().toolName,
             AgentAction.OpenDevicePanel("").toolName,
             AgentAction.ReadDeviceStatus().toolName,
+            AgentAction.ReadCurrentLocation().toolName,
             AgentAction.SetBrightness().toolName,
             AgentAction.SetDoNotDisturb().toolName,
             AgentAction.SetBatterySaver().toolName,
@@ -323,6 +324,9 @@ internal object SystemToolExecutor : AgentToolExecutor {
 
             is AgentAction.ReadDeviceStatus ->
                 PlatformAdvancedDeviceControlService.readStatus(context.service, action.target)
+
+            is AgentAction.ReadCurrentLocation ->
+                PlatformCurrentLocationToolService.readCurrentLocation(context.service, action.maxAgeMinutes)
 
             is AgentAction.SetBrightness ->
                 PlatformAdvancedDeviceControlService.setBrightness(context.service, action.level)

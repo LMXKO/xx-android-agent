@@ -397,18 +397,24 @@ class OpenAiPlanner(
         48. {"action":"media_control","command":"pause","reason":"..."}
         49. {"action":"adjust_volume","direction":"lower","stream":"music","step":2,"reason":"..."}
         50. {"action":"open_device_panel","panel":"bluetooth","reason":"..."}
-        51. {"action":"capture_screenshot","note":"记录当前确认页","reason":"..."}
-        52. {"action":"capture_photo","note":"打开相机拍照上传","reason":"..."}
-        53. {"action":"read_todo_board","reason":"..."}
-        54. {"action":"write_todo_board","content":"- 回到目标会话\n- 确认正文\n- 发送后截图","mode":"append","reason":"..."}
-        55. {"action":"delegate_local_agent","task":"并行检查历史截图里最近一次失败原因","summary":"让本地 worker 去做旁路排障","role":"explore","reason":"..."}
-        56. {"action":"read_worker_mailbox","target":"","include_consumed":false,"limit":8,"reason":"..."}
-        57. {"action":"reply_worker_message","message_id":"mail_123","decision":"approve","note":"继续沿这个方向补证据","reason":"..."}
-        58. {"action":"ack_worker_message","message_id":"mail_123","note":"主线程已吸收这条结果","reason":"..."}
-        59. {"action":"read_session_memory_file","reason":"..."}
-        60. {"action":"read_worker_roles","reason":"..."}
-        61. {"action":"read_worker_status","target":"","include_children":true,"reason":"..."}
-        62. {"action":"merge_worker_result","message_id":"mail_123","note":"把这条旁路排障结果收口到主线程","reason":"..."}
+        51. {"action":"read_device_status","target":"overview","reason":"..."}
+        52. {"action":"read_current_location","max_age_minutes":30,"reason":"..."}
+        53. {"action":"set_brightness","level":"70%","reason":"..."}
+        54. {"action":"set_do_not_disturb","mode":"on","reason":"..."}
+        55. {"action":"set_battery_saver","mode":"on","reason":"..."}
+        56. {"action":"open_power_dialog","reason":"..."}
+        57. {"action":"capture_screenshot","note":"记录当前确认页","reason":"..."}
+        58. {"action":"capture_photo","note":"打开相机拍照上传","reason":"..."}
+        59. {"action":"read_todo_board","reason":"..."}
+        60. {"action":"write_todo_board","content":"- 回到目标会话\n- 确认正文\n- 发送后截图","mode":"append","reason":"..."}
+        61. {"action":"delegate_local_agent","task":"并行检查历史截图里最近一次失败原因","summary":"让本地 worker 去做旁路排障","role":"explore","reason":"..."}
+        62. {"action":"read_worker_mailbox","target":"","include_consumed":false,"limit":8,"reason":"..."}
+        63. {"action":"reply_worker_message","message_id":"mail_123","decision":"approve","note":"继续沿这个方向补证据","reason":"..."}
+        64. {"action":"ack_worker_message","message_id":"mail_123","note":"主线程已吸收这条结果","reason":"..."}
+        65. {"action":"read_session_memory_file","reason":"..."}
+        66. {"action":"read_worker_roles","reason":"..."}
+        67. {"action":"read_worker_status","target":"","include_children":true,"reason":"..."}
+        68. {"action":"merge_worker_result","message_id":"mail_123","note":"把这条旁路排障结果收口到主线程","reason":"..."}
         
         规则:
         - 一次只选一个动作。
@@ -440,7 +446,7 @@ class OpenAiPlanner(
         - 如果当前页面证据不足，但任务需要外部公共信息，可使用 web_search / web_fetch 做公网补充，再把稳定结论写回 notebook 或 todo board。
         - 如果当前 profile 或任务已经存在 connected app 能力，优先先用 read_connected_app_capabilities / execute_connected_app_action 走结构化路径，再考虑 GUI fallback。
         - 地图、系统设置这类高确定性任务，优先 connected app 或 system utility，不要默认先走界面探索。
-        - 如果任务是读通知、回通知、暂停媒体、调音量、开蓝牙/网络面板、拍照、留存截图，优先用 read_notifications / reply_notification / media_control / adjust_volume / open_device_panel / capture_screenshot / capture_photo。
+        - 如果任务是读通知、回通知、暂停媒体、调音量、开蓝牙/网络面板、读取当前位置、拍照、留存截图，优先用 read_notifications / reply_notification / media_control / adjust_volume / open_device_panel / read_current_location / capture_screenshot / capture_photo。
         - 如果任务需要显式拆成清单、阶段计划或待办收口，可使用 read_todo_board / write_todo_board。
         - 如果当前任务里有明显可并行、可旁路排障或不阻塞主链的子任务，可使用 delegate_local_agent 把子任务委派给本地 worker；role 可选 general/explore/plan/verification。
         - 如果你不确定该派哪类 worker，先用 read_worker_roles 看内建角色目录。
@@ -1583,6 +1589,10 @@ class OpenAiPlanner(
                 )
             "open_device_panel" -> AgentAction.OpenDevicePanel(json.optString("panel"))
             "read_device_status" -> AgentAction.ReadDeviceStatus(json.optString("target"))
+            "read_current_location" ->
+                AgentAction.ReadCurrentLocation(
+                    maxAgeMinutes = json.optInt("max_age_minutes", PlatformCurrentLocationToolService.DEFAULT_MAX_AGE_MINUTES),
+                )
             "set_brightness" -> AgentAction.SetBrightness(json.optString("level"))
             "set_do_not_disturb" -> AgentAction.SetDoNotDisturb(json.optString("mode", "on"))
             "set_battery_saver" -> AgentAction.SetBatterySaver(json.optString("mode", "on"))

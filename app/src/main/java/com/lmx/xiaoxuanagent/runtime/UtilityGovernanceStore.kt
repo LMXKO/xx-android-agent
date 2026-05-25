@@ -12,6 +12,7 @@ object UtilityGovernanceStore {
             "system.adjust_volume",
             "system.open_device_panel",
             "system.read_device_status",
+            "system.read_current_location",
             "system.set_brightness",
             "system.set_do_not_disturb",
             "system.set_battery_saver",

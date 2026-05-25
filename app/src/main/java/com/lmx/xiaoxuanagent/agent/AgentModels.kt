@@ -684,6 +684,14 @@ sealed interface AgentAction {
         override val toolName: String = "system.read_device_status"
     }
 
+    data class ReadCurrentLocation(
+        val maxAgeMinutes: Int = PlatformCurrentLocationToolService.DEFAULT_MAX_AGE_MINUTES,
+    ) : AgentAction {
+        override val label: String = "read_current_location($maxAgeMinutes)"
+        override val toolType: AgentActionToolType = AgentActionToolType.SYSTEM
+        override val toolName: String = "system.read_current_location"
+    }
+
     data class SetBrightness(
         val level: String = "",
     ) : AgentAction {
