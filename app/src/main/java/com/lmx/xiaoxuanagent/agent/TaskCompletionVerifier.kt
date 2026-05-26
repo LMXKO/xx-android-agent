@@ -114,6 +114,7 @@ object TaskCompletionVerifier {
             is AgentAction.DialNumber,
             is AgentAction.DraftSms,
             is AgentAction.LookupContact,
+            is AgentAction.ReadCallLog,
             is AgentAction.ReadSessionHistory,
             is AgentAction.SearchArtifacts,
             is AgentAction.RecallMemory,

@@ -72,6 +72,7 @@ object ActionVerifier {
                 is AgentAction.DialNumber,
                 is AgentAction.DraftSms,
                 is AgentAction.LookupContact,
+                is AgentAction.ReadCallLog,
                 is AgentAction.ReadNotifications,
                 is AgentAction.ReplyNotification,
                 is AgentAction.MediaControl,
@@ -205,6 +206,7 @@ object ActionVerifier {
             is AgentAction.DialNumber -> verifyGlobalAction(after, "已切换到拨号相关界面。")
             is AgentAction.DraftSms -> verifyGlobalAction(after, "已切换到短信草稿相关界面。")
             is AgentAction.LookupContact -> ActionVerificationResult(true, "已读取联系人候选。", false)
+            is AgentAction.ReadCallLog -> ActionVerificationResult(true, "已读取通话记录摘要。", false)
             is AgentAction.ReadNotifications -> ActionVerificationResult(true, "已读取通知摘要。", false)
             is AgentAction.ReplyNotification -> ActionVerificationResult(true, "已尝试回复通知。", false)
             is AgentAction.MediaControl -> ActionVerificationResult(true, "已发送媒体控制。", false)

@@ -631,6 +631,16 @@ sealed interface AgentAction {
         override val toolName: String = "system.lookup_contact"
     }
 
+    data class ReadCallLog(
+        val query: String = "",
+        val type: String = "",
+        val limit: Int = PlatformCallLogToolService.DEFAULT_LIMIT,
+    ) : AgentAction {
+        override val label: String = "read_call_log(${query.ifBlank { type }.take(20)})"
+        override val toolType: AgentActionToolType = AgentActionToolType.SYSTEM
+        override val toolName: String = "system.read_call_log"
+    }
+
     data class ReadNotifications(
         val packageName: String = "",
         val limit: Int = 6,

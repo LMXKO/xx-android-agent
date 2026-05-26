@@ -146,6 +146,7 @@ object AgentToolRuntimeProtocol {
                 }
             is AgentAction.DraftSms -> requireNotBlank(action.recipient, "recipient")
             is AgentAction.LookupContact -> requireNotBlank(action.contactName, "contact_name")
+            is AgentAction.ReadCallLog -> ""
             is AgentAction.ReadCurrentLocation -> ""
             is AgentAction.PopulatePrimaryInput -> requireNotBlank(action.text, "text")
             is AgentAction.SubmitPrimaryAction -> ""

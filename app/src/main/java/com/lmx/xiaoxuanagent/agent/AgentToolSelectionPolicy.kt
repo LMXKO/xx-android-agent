@@ -156,6 +156,10 @@ object AgentToolSelectionPolicy {
         if (task.contains("日历") || task.contains("日程") || task.contains("会议")) {
             prefer("system.insert_calendar_event")
         }
+        if (task.contains("通话记录") || task.contains("未接") || task.contains("来电") || task.contains("谁给我打") || task.contains("call log", ignoreCase = true) || task.contains("missed call", ignoreCase = true)) {
+            prefer("system.read_call_log", "system.lookup_contact")
+            block("gui.tap_point", "gui.swipe")
+        }
         if (task.contains("打电话") || task.contains("拨号") || task.contains("电话")) {
             prefer("system.lookup_contact", "system.dial_number")
             block("gui.tap_point", "gui.swipe")
@@ -282,6 +286,7 @@ object AgentToolSelectionPolicy {
             "system.open_device_panel",
             "system.read_device_status",
             "system.read_current_location",
+            "system.read_call_log",
             "system.set_brightness",
             "system.set_do_not_disturb",
             "system.set_battery_saver",
