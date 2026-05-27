@@ -631,6 +631,16 @@ sealed interface AgentAction {
         override val toolName: String = "system.lookup_contact"
     }
 
+    data class ReadSms(
+        val query: String = "",
+        val box: String = "",
+        val limit: Int = PlatformSmsToolService.DEFAULT_LIMIT,
+    ) : AgentAction {
+        override val label: String = "read_sms(${query.ifBlank { box }.take(20)})"
+        override val toolType: AgentActionToolType = AgentActionToolType.SYSTEM
+        override val toolName: String = "system.read_sms"
+    }
+
     data class ReadCallLog(
         val query: String = "",
         val type: String = "",

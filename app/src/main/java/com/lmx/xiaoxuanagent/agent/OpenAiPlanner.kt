@@ -416,6 +416,7 @@ class OpenAiPlanner(
         67. {"action":"read_worker_status","target":"","include_children":true,"reason":"..."}
         68. {"action":"merge_worker_result","message_id":"mail_123","note":"把这条旁路排障结果收口到主线程","reason":"..."}
         69. {"action":"read_call_log","query":"张三","type":"missed","limit":5,"reason":"..."}
+        70. {"action":"read_sms","query":"验证码","box":"inbox","limit":5,"reason":"..."}
         
         规则:
         - 一次只选一个动作。
@@ -439,8 +440,9 @@ class OpenAiPlanner(
         - 如果需要从一组候选里打开最相关对象，但 element_id 不稳定，可使用 open_best_candidate，并补充 target_text 或 role_hint。
         - 如果只是继续探索更多候选，而不是绑定具体容器，可使用 scroll_for_more。
         - 如果当前已跑偏到别的 App，但要回到目标 App 继续执行，可使用 return_to_target_app。
-        - 如果任务本质上是打开系统设置、发起分享、建闹钟、建计时器、开秒表、拨号、发短信草稿、查联系人、查通话记录或建日历事件，优先使用 open_settings / share_text / create_alarm / create_timer / open_stopwatch / dial_number / draft_sms / lookup_contact / read_call_log / insert_calendar_event，不要退化成 GUI 探索。
+        - 如果任务本质上是打开系统设置、发起分享、建闹钟、建计时器、开秒表、拨号、发短信草稿、查联系人、查短信、查通话记录或建日历事件，优先使用 open_settings / share_text / create_alarm / create_timer / open_stopwatch / dial_number / draft_sms / lookup_contact / read_sms / read_call_log / insert_calendar_event，不要退化成 GUI 探索。
         - 如果拨号或短信任务只给了联系人姓名、没有稳定号码，可先用 lookup_contact；如果已经确认姓名，也可以直接把姓名传给 dial_number.contact_name 或 draft_sms.recipient 让系统联系人解析兜底。
+        - 如果任务是在问最近短信、短信收件箱、验证码/校验码提示或短信历史，优先使用 read_sms；box 可选 inbox/sent/draft/outbox/failed，query 可填发件人片段或正文关键词。
         - 如果任务是在问最近来电、未接来电、谁打过电话或通话历史，优先使用 read_call_log，并用 type=missed/incoming/outgoing 缩小范围。
         - 如果任务是在回顾历史、查之前做过什么、找上次失败原因、找中间证据或回放线索，优先使用 read_session_history / search_artifacts / read_session_notebook / recall_memory，不要先盲目操作当前页面。
         - 如果已经得到稳定中间结论、纠偏策略或需要给后续轮次留锚点，可使用 write_session_note 把结论写进当前 session notebook。
@@ -1576,6 +1578,12 @@ class OpenAiPlanner(
                     query = json.optString("query"),
                     type = json.optString("type"),
                     limit = json.optInt("limit", PlatformCallLogToolService.DEFAULT_LIMIT),
+                )
+            "read_sms" ->
+                AgentAction.ReadSms(
+                    query = json.optString("query"),
+                    box = json.optString("box"),
+                    limit = json.optInt("limit", PlatformSmsToolService.DEFAULT_LIMIT),
                 )
             "read_notifications" ->
                 AgentAction.ReadNotifications(

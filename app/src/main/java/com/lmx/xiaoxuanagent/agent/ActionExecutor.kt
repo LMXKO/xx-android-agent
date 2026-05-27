@@ -86,6 +86,7 @@ object ActionExecutor {
             AgentAction.DialNumber("").toolName,
             AgentAction.DraftSms("").toolName,
             AgentAction.LookupContact("").toolName,
+            AgentAction.ReadSms().toolName,
             AgentAction.ReadCallLog().toolName,
             AgentAction.ReadNotifications().toolName,
             AgentAction.ReplyNotification("", "").toolName,
@@ -307,6 +308,9 @@ internal object SystemToolExecutor : AgentToolExecutor {
 
             is AgentAction.LookupContact ->
                 PlatformContactLookupToolService.lookup(context.service, action.contactName, action.limit)
+
+            is AgentAction.ReadSms ->
+                PlatformSmsToolService.readSms(context.service, action.query, action.box, action.limit)
 
             is AgentAction.ReadCallLog ->
                 PlatformCallLogToolService.readCallLog(context.service, action.query, action.type, action.limit)

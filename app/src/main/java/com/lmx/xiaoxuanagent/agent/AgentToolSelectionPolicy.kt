@@ -164,7 +164,23 @@ object AgentToolSelectionPolicy {
             prefer("system.lookup_contact", "system.dial_number")
             block("gui.tap_point", "gui.swipe")
         }
-        if (task.contains("短信") || task.contains("发短信")) {
+        val smsSendTask =
+            task.contains("发短信") ||
+                task.contains("发送短信") ||
+                task.contains("send sms", ignoreCase = true) ||
+                task.contains("send text", ignoreCase = true)
+        val smsReadTask =
+            task.contains("短信") ||
+                task.contains("验证码") ||
+                task.contains("校验码") ||
+                task.contains("收件箱") ||
+                task.contains("sms", ignoreCase = true) ||
+                task.contains("text message", ignoreCase = true)
+        if (smsReadTask && !smsSendTask) {
+            prefer("system.read_sms", "system.read_notifications")
+            block("gui.tap_point", "gui.swipe")
+        }
+        if (smsSendTask) {
             prefer("system.lookup_contact", "system.draft_sms")
             block("gui.tap_point", "gui.swipe")
         }
@@ -287,6 +303,7 @@ object AgentToolSelectionPolicy {
             "system.read_device_status",
             "system.read_current_location",
             "system.read_call_log",
+            "system.read_sms",
             "system.set_brightness",
             "system.set_do_not_disturb",
             "system.set_battery_saver",

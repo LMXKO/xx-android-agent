@@ -46,6 +46,7 @@ private fun placeholderRuntimeAction(
         AgentAction.DialNumber("").toolName -> AgentAction.DialNumber("")
         AgentAction.DraftSms("").toolName -> AgentAction.DraftSms("")
         AgentAction.LookupContact("").toolName -> AgentAction.LookupContact("")
+        AgentAction.ReadSms().toolName -> AgentAction.ReadSms()
         AgentAction.ReadCallLog().toolName -> AgentAction.ReadCallLog()
         AgentAction.ReadNotifications().toolName -> AgentAction.ReadNotifications()
         AgentAction.ReplyNotification("", "").toolName -> AgentAction.ReplyNotification("", "")
@@ -538,6 +539,8 @@ private data class DescriptorBackedToolRuntimeObject(
                 }
 
             is AgentAction.LookupContact -> AgentToolInputReview()
+
+            is AgentAction.ReadSms -> AgentToolInputReview()
 
             is AgentAction.ReadCallLog -> AgentToolInputReview()
 

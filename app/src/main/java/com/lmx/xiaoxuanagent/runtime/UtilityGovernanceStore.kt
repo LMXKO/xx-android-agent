@@ -14,6 +14,7 @@ object UtilityGovernanceStore {
             "system.read_device_status",
             "system.read_current_location",
             "system.read_call_log",
+            "system.read_sms",
             "system.set_brightness",
             "system.set_do_not_disturb",
             "system.set_battery_saver",
