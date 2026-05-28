@@ -10,8 +10,6 @@ import com.lmx.xiaoxuanagent.assistantos.AssistantOsController
 import com.lmx.xiaoxuanagent.assistantos.AssistantPermissionMode
 import com.lmx.xiaoxuanagent.assistantos.AssistantSafetyMode
 import com.lmx.xiaoxuanagent.runtime.SessionRuntime
-import com.lmx.xiaoxuanagent.taskprofile.AutomationSupportPolicyStore
-import java.util.Locale
 
 object SafetyPolicyEngine {
     private val neutralOverlayPackages =
@@ -104,20 +102,10 @@ object SafetyPolicyEngine {
         val strictReview =
             safetyMode == AssistantSafetyMode.STRICT ||
                 permissionMode == AssistantPermissionMode.PROMPT_EACH_TIME
-        val focusedReview = safetyMode == AssistantSafetyMode.FOCUSED
         val submitContext = looksLikeSubmitContext(observation)
         val destructiveAction = matchesAny(semanticText, destructiveKeywords)
         val confirmAction = matchesAny(semanticText, confirmKeywords)
         val actionFamily = deriveActionFamily(action, semanticText, submitContext, destructiveAction)
-        val automationPolicy =
-            AutomationSupportPolicyStore.resolve(
-                profileId = SessionRuntime.State.runtimeState().session.profileId,
-                packageName = observation.packageName,
-                taskIntent = TaskIntentParser.parse(SessionRuntime.State.runtimeState().session.task).intentType.name.lowercase(),
-                planStage = SessionRuntime.State.runtimeState().session.planningSnapshot.currentPlanStage,
-                pageState = observation.pageState,
-                actionTemplate = action.toolName,
-            )
         val (crossAppSourcePackageName, crossAppTargetPackageName) =
             resolveCrossAppPackages(
                 observationPackageName = observation.packageName,
@@ -136,6 +124,8 @@ object SafetyPolicyEngine {
                 action = action,
                 semanticText = semanticText,
                 targetPackageName = crossAppTargetPackageName,
+                declaredHandoffFields =
+                    SessionRuntime.State.runtimeState().session.mission?.declaredHandoffFields ?: emptySet(),
             )
         val riskLevelLabel =
             when {
@@ -144,6 +134,9 @@ object SafetyPolicyEngine {
                 else -> "low"
             }
         val grantScopeHint = suggestGrantScope(permissionMode, actionFamily)
+        val dataType = resolveDataType(semanticText)
+        val contact =
+            TaskIntentParser.parse(SessionRuntime.State.runtimeState().session.task).recipientName.orEmpty()
         val explicitRule =
             RuntimeSafetyPolicyStore.resolveRule(
                 actionFamily = actionFamily,
@@ -151,6 +144,8 @@ object SafetyPolicyEngine {
                 toolName = action.toolName,
                 pageState = observation.pageState,
                 targetText = semanticText,
+                contact = contact,
+                dataType = dataType,
             )
         val title =
             when (action) {
@@ -296,26 +291,15 @@ object SafetyPolicyEngine {
             )
         }
 
-        if (confirmAction) {
-            if (focusedReview && !destructiveAction && !submitContext) {
-                return SafetyReview(
-                    level = RiskLevel.LOW,
-                    actionLabel = action.label,
-                    targetPackageName = observation.packageName,
-                    actionFamily = actionFamily,
-                    riskLevelLabel = riskLevelLabel,
-                    grantScopeHint = grantScopeHint,
-                )
-            }
+        // 自治策略（用户指令：尽量只在支付/转账时确认）：
+        // 人工确认已收窄为 —— 支付/转账类(前面 BLOCK) + 不可逆破坏性操作(下方 CONFIRM) +
+        // 跨 App 凭证泄露/屏幕注入(前面 deny→BLOCK) + 用户显式 ASK 规则。
+        // 发送/发布/回复/提交/登录/搜索等一律自动执行，不再打断。
+        if (destructiveAction) {
             return SafetyReview(
                 level = RiskLevel.CONFIRM,
                 title = title,
-                summary =
-                    if (automationPolicy.requiresFinalHandoff) {
-                        "${automationPolicy.handoffSummary} 当前检测到 ${actionLabel}，最后一步需要你亲自确认。"
-                    } else {
-                        "检测到 ${actionLabel}，这类动作可能会真正发送、发布或删除内容。"
-                    },
+                summary = "检测到不可逆操作 ${actionLabel}（删除/清空/注销/拉黑等），请确认后再执行。",
                 actionLabel = actionLabel,
                 approvalKey = approvalKey,
                 targetPackageName = observation.packageName,
@@ -323,47 +307,6 @@ object SafetyPolicyEngine {
                 riskLevelLabel = "confirm",
                 grantScopeHint = grantScopeHint,
             )
-        }
-
-        if ((action is AgentAction.PressEnter || action is AgentAction.SubmitPrimaryAction) && submitContext) {
-            return SafetyReview(
-                level = RiskLevel.CONFIRM,
-                title = "模型准备提交当前输入",
-                summary =
-                    if (automationPolicy.requiresFinalHandoff) {
-                        "${automationPolicy.handoffSummary} 当前页面已经准备好最后一步，请你确认 ${renderActionLabel(action, targetText)}。"
-                    } else {
-                        "检测到 ${renderActionLabel(action, targetText)}，当前页面看起来处在消息或评论输入场景。"
-                    },
-                actionLabel = renderActionLabel(action, targetText),
-                approvalKey = approvalKey,
-                targetPackageName = observation.packageName,
-                actionFamily = actionFamily,
-                riskLevelLabel = "confirm",
-                grantScopeHint = grantScopeHint,
-            )
-        }
-
-        if (action is AgentAction.Click && targetElement != null && submitContext) {
-            val lowerText = targetText.lowercase(Locale.ROOT)
-            if (lowerText.contains("enter") || lowerText.contains("send") || strictReview) {
-                return SafetyReview(
-                    level = RiskLevel.CONFIRM,
-                    title = title,
-                    summary =
-                        if (automationPolicy.requiresFinalHandoff) {
-                            "${automationPolicy.handoffSummary} 当前已经定位到 ${actionLabel}，最后一步由你确认完成。"
-                        } else {
-                            "检测到 ${actionLabel}，当前页面看起来处在消息或评论输入场景。"
-                        },
-                    actionLabel = actionLabel,
-                    approvalKey = approvalKey,
-                    targetPackageName = observation.packageName,
-                    actionFamily = actionFamily,
-                    riskLevelLabel = "confirm",
-                    grantScopeHint = grantScopeHint,
-                )
-            }
         }
 
         return SafetyReview(
@@ -505,6 +448,15 @@ object SafetyPolicyEngine {
         keywords: List<String>,
     ): Boolean =
         keywords.any { keyword -> text.contains(keyword, ignoreCase = true) }
+
+    /** 把动作语义归类到数据类型维度，供持久化权限规则（如 verification_code → deny）匹配。 */
+    private fun resolveDataType(semanticText: String): String =
+        when {
+            listOf("验证码", "verification code", "otp", "动态码").any { semanticText.contains(it, ignoreCase = true) } -> "verification_code"
+            listOf("密码", "password", "支付密码").any { semanticText.contains(it, ignoreCase = true) } -> "password"
+            listOf("¥", "￥", "金额", "转账", "付款", "余额").any { semanticText.contains(it) } -> "amount"
+            else -> ""
+        }
 
     private fun deriveActionFamily(
         action: AgentAction,

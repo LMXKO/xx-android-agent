@@ -19,6 +19,8 @@ data class RuntimeSafetyPolicyRule(
     val toolName: String = "",
     val pageState: String = "",
     val targetTextContains: String = "",
+    val contactContains: String = "",
+    val dataType: String = "",
     val note: String = "",
     val sourceTag: String = "",
     val surfaceHint: String = "",
@@ -34,6 +36,8 @@ fun RuntimeSafetyPolicyRule.scopeSummary(): String =
         append(" | tool=").append(toolName.ifBlank { "*" })
         append(" | page=").append(pageState.ifBlank { "*" })
         append(" | text=").append(targetTextContains.ifBlank { "*" })
+        append(" | contact=").append(contactContains.ifBlank { "*" })
+        append(" | data=").append(dataType.ifBlank { "*" })
     }
 
 fun RuntimeSafetyPolicyRule.behaviorSummary(): String =
@@ -59,6 +63,8 @@ object RuntimeSafetyPolicyStore {
         toolName: String = "",
         pageState: String = "",
         targetText: String = "",
+        contact: String = "",
+        dataType: String = "",
     ): RuntimeSafetyPolicyRule? =
         synchronized(lock) {
             hydrateIfNeededUnlocked()
@@ -67,6 +73,8 @@ object RuntimeSafetyPolicyStore {
                 .filter { it.actionFamily == actionFamily }
                 .sortedWith(
                     compareByDescending<RuntimeSafetyPolicyRule> { it.targetPackageName == targetPackageName }
+                        .thenByDescending { it.contactContains.isNotBlank() && contact.contains(it.contactContains, ignoreCase = true) }
+                        .thenByDescending { it.dataType.isNotBlank() && it.dataType.equals(dataType, ignoreCase = true) }
                         .thenByDescending { it.toolName.isNotBlank() && it.toolName == toolName }
                         .thenByDescending { it.pageState.isNotBlank() && it.pageState == pageState }
                         .thenByDescending { it.targetTextContains.isNotBlank() && targetText.contains(it.targetTextContains, ignoreCase = true) }
@@ -76,7 +84,9 @@ object RuntimeSafetyPolicyStore {
                     (rule.targetPackageName.isBlank() || rule.targetPackageName == targetPackageName) &&
                         (rule.toolName.isBlank() || rule.toolName == toolName) &&
                         (rule.pageState.isBlank() || rule.pageState == pageState) &&
-                        (rule.targetTextContains.isBlank() || targetText.contains(rule.targetTextContains, ignoreCase = true))
+                        (rule.targetTextContains.isBlank() || targetText.contains(rule.targetTextContains, ignoreCase = true)) &&
+                        (rule.contactContains.isBlank() || contact.contains(rule.contactContains, ignoreCase = true)) &&
+                        (rule.dataType.isBlank() || rule.dataType.equals(dataType, ignoreCase = true))
                 }
         }
 
@@ -102,8 +112,15 @@ object RuntimeSafetyPolicyStore {
                 .toList()
         }
 
-    fun ensureSuperAssistantBaselineRules(): List<RuntimeSafetyPolicyRule> =
-        SUPER_ASSISTANT_BASELINE_RULES.mapNotNull { baseline ->
+    fun ensureSuperAssistantBaselineRules(): List<RuntimeSafetyPolicyRule> {
+        synchronized(lock) {
+            hydrateIfNeededUnlocked()
+            // 清掉旧版本遗留的 baseline 规则，避免 message_send/submit 等旧 ASK 规则把自治策略拉回频繁确认。
+            val before = rules.size
+            rules.removeAll { it.sourceTag == "super_assistant_baseline" }
+            if (rules.size != before) persistUnlocked()
+        }
+        return SUPER_ASSISTANT_BASELINE_RULES.mapNotNull { baseline ->
             upsertRule(
                 behavior = baseline.behavior,
                 actionFamily = baseline.actionFamily,
@@ -117,6 +134,7 @@ object RuntimeSafetyPolicyStore {
                 explanation = baseline.explanation,
             )
         }
+    }
 
     fun upsertRule(
         behavior: RuntimeSafetyPolicyBehavior,
@@ -125,6 +143,8 @@ object RuntimeSafetyPolicyStore {
         toolName: String = "",
         pageState: String = "",
         targetTextContains: String = "",
+        contactContains: String = "",
+        dataType: String = "",
         note: String = "",
         sourceTag: String = "",
         surfaceHint: String = "",
@@ -136,6 +156,8 @@ object RuntimeSafetyPolicyStore {
         val normalizedToolName = toolName.trim()
         val normalizedPageState = pageState.trim()
         val normalizedTargetText = targetTextContains.trim()
+        val normalizedContact = contactContains.trim()
+        val normalizedDataType = dataType.trim()
         val normalizedSourceTag = sourceTag.trim()
         val normalizedSurfaceHint = surfaceHint.trim()
         return synchronized(lock) {
@@ -147,7 +169,9 @@ object RuntimeSafetyPolicyStore {
                         it.targetPackageName == normalizedPackage &&
                         it.toolName == normalizedToolName &&
                         it.pageState == normalizedPageState &&
-                        it.targetTextContains == normalizedTargetText
+                        it.targetTextContains == normalizedTargetText &&
+                        it.contactContains == normalizedContact &&
+                        it.dataType == normalizedDataType
                 }
             val next =
                 RuntimeSafetyPolicyRule(
@@ -158,6 +182,8 @@ object RuntimeSafetyPolicyStore {
                     toolName = normalizedToolName,
                     pageState = normalizedPageState,
                     targetTextContains = normalizedTargetText,
+                    contactContains = normalizedContact,
+                    dataType = normalizedDataType,
                     note = note.take(160),
                     sourceTag = normalizedSourceTag.take(48),
                     surfaceHint = normalizedSurfaceHint.take(88),
@@ -175,6 +201,20 @@ object RuntimeSafetyPolicyStore {
             next
         }
     }
+
+    /** 可读审计：列出当前持久化的所有规则（行为 + 范围 + 来源 + 更新时间），用于权限治理追溯。 */
+    fun auditLines(
+        limit: Int = 64,
+    ): List<String> =
+        synchronized(lock) {
+            hydrateIfNeededUnlocked()
+            rules
+                .sortedByDescending { it.updatedAtMs }
+                .take(limit.coerceAtLeast(1))
+                .map { rule ->
+                    "${rule.behavior.name.lowercase()} :: ${rule.scopeSummary()} :: src=${rule.sourceTag.ifBlank { "user" }}"
+                }
+        }
 
     fun deleteRule(
         ruleId: String,
@@ -239,6 +279,8 @@ object RuntimeSafetyPolicyStore {
             put("tool_name", toolName)
             put("page_state", pageState)
             put("target_text_contains", targetTextContains)
+            put("contact_contains", contactContains)
+            put("data_type", dataType)
             put("note", note)
             put("source_tag", sourceTag)
             put("surface_hint", surfaceHint)
@@ -256,6 +298,8 @@ object RuntimeSafetyPolicyStore {
             toolName = optString("tool_name"),
             pageState = optString("page_state"),
             targetTextContains = optString("target_text_contains"),
+            contactContains = optString("contact_contains"),
+            dataType = optString("data_type"),
             note = optString("note"),
             sourceTag = optString("source_tag"),
             surfaceHint = optString("surface_hint"),
@@ -299,44 +343,16 @@ object RuntimeSafetyPolicyStore {
             BaselineRule(
                 behavior = RuntimeSafetyPolicyBehavior.DENY,
                 actionFamily = "transaction",
-                note = "超级手机助手默认禁止自动交易。",
+                note = "支付/转账/下单类交易默认交给用户。",
                 surfaceHint = "payment_or_checkout",
                 explanation = "支付、转账、下单等交易动作必须交给用户亲自完成。",
             ),
             BaselineRule(
-                behavior = RuntimeSafetyPolicyBehavior.DENY,
+                behavior = RuntimeSafetyPolicyBehavior.ASK,
                 actionFamily = "destructive",
-                note = "超级手机助手默认禁止自动删除/注销。",
+                note = "不可逆删除/注销默认需要确认。",
                 surfaceHint = "irreversible_change",
-                explanation = "删除、注销、拉黑等不可逆动作默认阻断。",
-            ),
-            BaselineRule(
-                behavior = RuntimeSafetyPolicyBehavior.ASK,
-                actionFamily = "message_send",
-                note = "发消息前必须确认。",
-                surfaceHint = "send_or_reply",
-                explanation = "短信、IM、通知回复等真实发送动作需要人工确认。",
-            ),
-            BaselineRule(
-                behavior = RuntimeSafetyPolicyBehavior.ASK,
-                actionFamily = "content_publish",
-                note = "发布内容前必须确认。",
-                surfaceHint = "publish_content",
-                explanation = "评论、发布、发表内容前需要用户确认最终内容。",
-            ),
-            BaselineRule(
-                behavior = RuntimeSafetyPolicyBehavior.ASK,
-                actionFamily = "submit_in_context",
-                note = "上下文提交前必须确认。",
-                surfaceHint = "context_submit",
-                explanation = "输入框上下文里的提交动作需要确认，避免误发或误提交。",
-            ),
-            BaselineRule(
-                behavior = RuntimeSafetyPolicyBehavior.ASK,
-                actionFamily = "route_confirm",
-                note = "开始导航前确认。",
-                surfaceHint = "route_or_navigation",
-                explanation = "路线确认和开始导航前需要用户确认目的地与路线。",
+                explanation = "删除、注销、拉黑等不可逆动作需要用户确认后执行；其余动作默认自动执行。",
             ),
         )
 }

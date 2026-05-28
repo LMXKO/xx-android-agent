@@ -294,6 +294,7 @@ private fun SessionCommand.typeName(): String =
         is SessionCommand.EnterTakeover -> "EnterTakeover"
         is SessionCommand.ResumeExecution -> "ResumeExecution"
         is SessionCommand.AdoptResumeContext -> "AdoptResumeContext"
+        is SessionCommand.AdvanceMissionLeg -> "AdvanceMissionLeg"
     }
 
 private fun SessionCommand.reasonText(): String =
@@ -317,4 +318,5 @@ private fun SessionCommand.reasonText(): String =
         is SessionCommand.EnterTakeover -> reason
         is SessionCommand.ResumeExecution -> reason
         is SessionCommand.AdoptResumeContext -> reason
+        is SessionCommand.AdvanceMissionLeg -> reason
     }

@@ -78,6 +78,7 @@ internal object SessionRuntimePlanningSupport {
                 observation = indexedObservation.observation,
                 history = session.history,
                 resumeContext = session.resumeContext,
+                targetPackageName = if (session.mission != null) session.targetPackageName else "",
             )
         if (taskPlanState.waitingForExternal) {
             enterExternalWait(
@@ -258,6 +259,7 @@ internal object SessionRuntimePlanningSupport {
                 observation = observation,
                 history = session.history,
                 resumeContext = session.resumeContext,
+                targetPackageName = if (session.mission != null) session.targetPackageName else "",
             )
         val baseMemoryContext = PersonalMemoryStore.recall(session.task, session.profileId)
         val compactSnapshot = SessionConversationCompactStore.readSnapshot(session.sessionId)
@@ -802,6 +804,12 @@ internal object SessionRuntimePlanningSupport {
         SessionRuntime.publishRuntimeState(planningContext.sessionId)
     }
 
+    /** 单 App 用 AGENT_MAX_TURNS；跨 App mission 给每条 leg 一份预算（总预算 = 上限 × 腿数）。 */
+    private fun effectiveMaxTurns(session: RuntimeSession): Int {
+        val legCount = (session.mission?.legs?.size ?: 1).coerceAtLeast(1)
+        return BuildConfig.AGENT_MAX_TURNS * legCount
+    }
+
     internal fun acquirePlanningRuntimeSession(
         observation: ScreenObservation,
     ): PlanningRuntimeAcquire {
@@ -817,7 +825,7 @@ internal object SessionRuntimePlanningSupport {
             current.lastObservationSignature == observation.signature ->
                 PlanningRuntimeAcquire.EarlyResult(PlanningAcquireResult.Idle)
 
-            current.turns >= BuildConfig.AGENT_MAX_TURNS -> {
+            current.turns >= effectiveMaxTurns(current) -> {
                 val message = "已达到最大执行轮数，自动任务已停止。"
                 SessionRuntimeStore.dispatch(
                     SessionCommand.TerminateSession(

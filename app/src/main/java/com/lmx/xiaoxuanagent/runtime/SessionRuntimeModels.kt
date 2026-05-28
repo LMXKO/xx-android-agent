@@ -1,6 +1,7 @@
 package com.lmx.xiaoxuanagent.runtime
 
 import com.lmx.xiaoxuanagent.agent.AgentTurnRecord
+import com.lmx.xiaoxuanagent.agent.CrossAppMission
 import com.lmx.xiaoxuanagent.agent.ResumeContext
 import com.lmx.xiaoxuanagent.safety.PendingSafetyConfirmation
 import com.lmx.xiaoxuanagent.taskprofile.TaskRegistry
@@ -143,6 +144,7 @@ data class RuntimeSession(
     val externalWaitState: RuntimeExternalWaitState? = null,
     val resumeContext: ResumeContext = ResumeContext(),
     val planningSnapshot: RuntimePlanningSnapshot = RuntimePlanningSnapshot(),
+    val mission: CrossAppMission? = null,
 ) {
     val status: String
         get() = statusSnapshot.code

@@ -6,6 +6,7 @@ import com.lmx.xiaoxuanagent.agent.AgentDecision
 import com.lmx.xiaoxuanagent.agent.AgentExecutionResult
 import com.lmx.xiaoxuanagent.agent.AgentPlanningContext
 import com.lmx.xiaoxuanagent.agent.AgentTurnRecord
+import com.lmx.xiaoxuanagent.agent.CrossAppMissionEngine
 import com.lmx.xiaoxuanagent.agent.IndexedScreenObservation
 import com.lmx.xiaoxuanagent.agent.MultiStepTaskEngine
 import com.lmx.xiaoxuanagent.agent.RecoveryCategory
@@ -241,7 +242,7 @@ internal object SessionRuntimeExecutionSupport {
         }
     }
 
-    fun resolveFinishExecutionCompletion(
+    suspend fun resolveFinishExecutionCompletion(
         planningContext: AgentPlanningContext,
         action: AgentAction.Finish,
         beforeObservation: ScreenObservation,
@@ -277,7 +278,7 @@ internal object SessionRuntimeExecutionSupport {
             )
         val extractedResult =
             if (finishCheck.verified) {
-                TaskResultExtractor.extract(
+                TaskResultExtractor.extractSmart(
                     task = planningContext.task,
                     observation = beforeObservation,
                     taskPlanState = planningContext.taskPlanState,
@@ -315,6 +316,62 @@ internal object SessionRuntimeExecutionSupport {
             suggestedRecoveryAction = suggestedRecoveryAction,
             finalMessage = finishFinalMessage,
         )
+        val mission = SessionRuntimeStore.read().session.mission
+        if (finishCheck.verified && mission?.activeLeg() != null) {
+            if (mission.hasNextLeg()) {
+                val advanced = mission.recordAndAdvance(extractedResult)
+                advanced.activeLeg()?.let { nextLegRaw ->
+                    val injectedSubTask =
+                        CrossAppMissionEngine.rewriteSubTaskWithHandoff(
+                            mission = advanced,
+                            nextSubTask = nextLegRaw.subTask,
+                            previousPayload = extractedResult,
+                        )
+                    val nextLeg = nextLegRaw.copy(subTask = injectedSubTask)
+                    val missionWithInjection =
+                        advanced.copy(
+                            legs =
+                                advanced.legs.mapIndexed { index, leg ->
+                                    if (index == advanced.activeLegIndex) nextLeg else leg
+                                },
+                        )
+                    SessionRuntimeStore.dispatch(
+                        SessionCommand.AdvanceMissionLeg(
+                            profileId = nextLeg.profileId,
+                            targetPackageName = nextLeg.targetPackageName,
+                            task = nextLeg.subTask,
+                            mission = missionWithInjection,
+                            reason = "advance_mission_leg",
+                        ),
+                    )
+                    return ExecutionCompletion(
+                        finalMessage =
+                            "已完成跨 App 任务第 ${mission.activeLegIndex + 1}/${mission.legs.size} 腿，" +
+                                "切换到下一腿 ${nextLeg.profileId} 继续：${nextLeg.subTask.take(60)}",
+                        keepRunning = true,
+                        shouldImmediateReplan = true,
+                        shouldResetObservationSignature = true,
+                        replanObservation = latestObservation,
+                        recoveryDiagnosis = null,
+                        suggestedRecoveryAction = "",
+                        taskResult = null,
+                    )
+                }
+            } else {
+                val finalResult = CrossAppMissionEngine.composeFinalResult(mission, extractedResult)
+                return ExecutionCompletion(
+                    finalMessage =
+                        "$finishFinalMessage 跨 App 任务完成：${TaskResultExtractor.renderBriefSummary(finalResult)}",
+                    keepRunning = false,
+                    shouldImmediateReplan = false,
+                    shouldResetObservationSignature = true,
+                    replanObservation = latestObservation,
+                    recoveryDiagnosis = null,
+                    suggestedRecoveryAction = "",
+                    taskResult = finalResult,
+                )
+            }
+        }
         return ExecutionCompletion(
             finalMessage = finishFinalMessage,
             keepRunning = !finishCheck.verified,
@@ -665,6 +722,7 @@ internal object SessionRuntimeExecutionSupport {
                         observation = planningContext.observation,
                         history = session.history,
                         resumeContext = appliedResumeContext,
+                        targetPackageName = if (session.mission != null) session.targetPackageName else "",
                     ),
                 activeSkills = activeSkills,
                 result = finalResult,

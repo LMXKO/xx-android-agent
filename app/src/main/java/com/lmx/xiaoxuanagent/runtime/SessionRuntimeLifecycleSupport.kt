@@ -1,5 +1,7 @@
 package com.lmx.xiaoxuanagent.runtime
 
+import com.lmx.xiaoxuanagent.agent.CrossAppMission
+import com.lmx.xiaoxuanagent.agent.CrossAppMissionEngine
 import com.lmx.xiaoxuanagent.agent.resolveResumeCorrectionDirective
 import com.lmx.xiaoxuanagent.assistantos.AssistantControlSurfaceLauncher
 import com.lmx.xiaoxuanagent.assistantos.AssistantOsController
@@ -192,6 +194,7 @@ internal object SessionRuntimeLifecycleSupport {
                     task = trimmedTask,
                     entrySource = entrySource,
                     routeResolution = routeResolution,
+                    mission = CrossAppMissionEngine.resolveMission(trimmedTask),
                 )
                 return true
             }
@@ -872,26 +875,34 @@ internal object SessionRuntimeLifecycleSupport {
         task: String,
         entrySource: String,
         routeResolution: TaskRouteResolution,
+        mission: CrossAppMission?,
     ) {
         val route = routeResolution.result
         val profile = route.profile
+        val leg0 = mission?.activeLeg()
+        val baseSession =
+            SessionRuntimeTransitionFactory.executionSession(
+                sessionId = sessionId,
+                task = leg0?.subTask ?: task,
+                entrySource = entrySource,
+                profileId = leg0?.profileId ?: profile.id,
+                targetPackageName = leg0?.targetPackageName ?: profile.packageName,
+                executionPhase = AgentUiExecutionPhase.STARTING,
+            )
         SessionRuntimeStore.dispatch(
             SessionCommand.StartExecution(
-                session =
-                    SessionRuntimeTransitionFactory.executionSession(
-                        sessionId = sessionId,
-                        task = task,
-                        entrySource = entrySource,
-                        profileId = profile.id,
-                        targetPackageName = profile.packageName,
-                        executionPhase = AgentUiExecutionPhase.STARTING,
-                    ),
+                session = if (mission != null) baseSession.copy(mission = mission) else baseSession,
                 resultSnapshot =
                     RuntimeResultSnapshot(
                         lastAction = "启动自动任务",
                         lastResult = "",
                         lastError = "",
-                        hint = "自动任务已启动，目标=${profile.displayName}，等待页面 observation。",
+                        hint =
+                            if (mission != null) {
+                                "跨 App 任务已启动，共 ${mission.legs.size} 腿，先进入 ${leg0?.profileId}，等待页面 observation。"
+                            } else {
+                                "自动任务已启动，目标=${profile.displayName}，等待页面 observation。"
+                            },
                     ),
                 reason = "start_execution",
             ),

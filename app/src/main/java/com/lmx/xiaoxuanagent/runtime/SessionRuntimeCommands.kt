@@ -1,6 +1,7 @@
 package com.lmx.xiaoxuanagent.runtime
 
 import com.lmx.xiaoxuanagent.agent.AgentTurnRecord
+import com.lmx.xiaoxuanagent.agent.CrossAppMission
 import com.lmx.xiaoxuanagent.agent.ResumeContext
 
 sealed interface SessionCommand {
@@ -128,6 +129,15 @@ sealed interface SessionCommand {
 
     data class AdoptResumeContext(
         val resumeContext: ResumeContext,
+        val reason: String,
+    ) : SessionCommand
+
+    /** 跨 App mission 推进到下一腿：把活跃腿的 profileId/targetPackageName/task 镜像进 session。 */
+    data class AdvanceMissionLeg(
+        val profileId: String,
+        val targetPackageName: String,
+        val task: String,
+        val mission: CrossAppMission,
         val reason: String,
     ) : SessionCommand
 }

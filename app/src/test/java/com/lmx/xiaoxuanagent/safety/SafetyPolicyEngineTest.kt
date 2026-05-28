@@ -11,7 +11,7 @@ import org.junit.Test
 
 class SafetyPolicyEngineTest {
     @Test
-    fun `click send requires confirmation`() {
+    fun `click send now auto-proceeds without confirmation`() {
         val review =
             SafetyPolicyEngine.review(
                 task = "去微信给韩威发一条晚安的消息",
@@ -28,8 +28,24 @@ class SafetyPolicyEngineTest {
                 action = AgentAction.Click("e2"),
             )
 
+        assertEquals(RiskLevel.LOW, review.level)
+    }
+
+    @Test
+    fun `click delete still requires confirmation`() {
+        val review =
+            SafetyPolicyEngine.review(
+                task = "清理相册",
+                indexedObservation =
+                    observation(
+                        topTexts = listOf("相册"),
+                        elements = listOf(element(id = "e3", text = "删除")),
+                    ),
+                action = AgentAction.Click("e3"),
+            )
+
         assertEquals(RiskLevel.CONFIRM, review.level)
-        assertTrue(review.summary.contains("发送"))
+        assertTrue(review.approvalKey.isNotBlank())
     }
 
     @Test
@@ -65,7 +81,7 @@ class SafetyPolicyEngineTest {
     }
 
     @Test
-    fun `press enter in message context requires confirmation`() {
+    fun `press enter in message context now auto-proceeds`() {
         val review =
             SafetyPolicyEngine.review(
                 task = "去微信给韩威发一条晚安的消息",
@@ -82,8 +98,7 @@ class SafetyPolicyEngineTest {
                 action = AgentAction.PressEnter,
             )
 
-        assertEquals(RiskLevel.CONFIRM, review.level)
-        assertTrue(review.approvalKey.isNotBlank())
+        assertEquals(RiskLevel.LOW, review.level)
     }
 
     @Test

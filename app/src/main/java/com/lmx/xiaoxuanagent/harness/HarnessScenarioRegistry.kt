@@ -62,6 +62,26 @@ object HarnessScenarioRegistry {
                 expectedStageHints = listOf("enter_query", "browse_candidates", "inspect_information", "confirm_handoff"),
             ),
             HarnessScenario(
+                id = "cross_app_mission",
+                title = "跨 App 比价任务",
+                suite = "commerce",
+                persona = "personal",
+                keywords = listOf("比价", "比较", "对比", "哪个便宜", "跨 App", "京东和淘宝", "京东和拼多多"),
+                canonicalTasks =
+                    listOf(
+                        "比较京东和淘宝上这款蓝牙耳机的价格。",
+                        "在京东和淘宝上比价这款手机，看哪个便宜。",
+                        "帮我比价 AirPods Pro。",
+                    ),
+                intentType = "cross_app_compare",
+                priority = 11,
+                tags = listOf("commerce", "cross_app", "multi_app", "handoff"),
+                riskLevel = "medium",
+                requiredCapabilities = listOf("connected_app", "cross_app_orchestration", "semantic_navigation"),
+                goldenKeywords = listOf("价格", "比价", "更便宜"),
+                expectedStageHints = listOf("launch_target_app", "enter_query", "browse_candidates", "inspect_information", "summarize"),
+            ),
+            HarnessScenario(
                 id = "local_service",
                 title = "本地生活任务",
                 suite = "lifestyle",

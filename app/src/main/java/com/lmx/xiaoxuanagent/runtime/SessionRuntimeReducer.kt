@@ -204,6 +204,20 @@ object SessionRuntimeReducer {
                     updatedAtMs = nowMs,
                 )
 
+            is SessionCommand.AdvanceMissionLeg ->
+                current.copy(
+                    session =
+                        current.session.copy(
+                            profileId = command.profileId,
+                            targetPackageName = command.targetPackageName,
+                            task = command.task,
+                            mission = command.mission,
+                            lastObservationSignature = "",
+                        ),
+                    lastTransition = command.reason,
+                    updatedAtMs = nowMs,
+                )
+
             is SessionCommand.PlanningAcquired ->
                 current.copy(
                     session =

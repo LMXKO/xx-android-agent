@@ -194,7 +194,8 @@ object CompactService {
             governanceHints =
                 (
                     buildGovernanceHints(policy, taskPlanState, history, artifactHints, elements.size) +
-                        runtimeSignals.filter { it.startsWith("trigger=") || it.startsWith("retry_hint=") }
+                        runtimeSignals.filter { it.startsWith("trigger=") || it.startsWith("retry_hint=") } +
+                        buildMissionGovernanceHints()
                 ).distinct(),
             topTexts = compactTopTexts,
             visualHints = compactVisualHints,
@@ -221,6 +222,28 @@ object CompactService {
                     compactArtifactHintCount = compactArtifactHints.size,
                 ),
         )
+    }
+
+    /** 把当前 mission 的黑板内容打成 governance hints，让长任务的"上一腿证据"在 compact 后仍可见。 */
+    internal fun buildMissionGovernanceHints(
+        mission: com.lmx.xiaoxuanagent.agent.CrossAppMission? = SessionRuntimeStore.read().session.mission,
+    ): List<String> {
+        if (mission == null) return emptyList()
+        return buildList {
+            add("mission_id=${mission.missionId}")
+            add(
+                "mission_progress=${mission.activeLegIndex + 1}/${mission.legs.size}: " +
+                    mission.legs.joinToString(" → ") { it.profileId },
+            )
+            mission.blackboard.forEachIndexed { index, payload ->
+                val priceField = payload.fields.firstOrNull { it.key.equals("price", ignoreCase = true) }?.value
+                add(
+                    "leg${index}_result: ${payload.title.take(48)}" +
+                        (priceField?.takeIf { it.isNotBlank() }?.let { " | price=$it" } ?: "") +
+                        payload.highlights.firstOrNull()?.let { " | " + it.take(48) }.orEmpty(),
+                )
+            }
+        }
     }
 
     private fun compactElements(

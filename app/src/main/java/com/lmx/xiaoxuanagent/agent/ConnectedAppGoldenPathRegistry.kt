@@ -346,6 +346,99 @@ object ConnectedAppGoldenPathRegistry {
                         riskLevel = "critical",
                     ),
                 ),
+            "cainiao_assistant" to
+                listOf(
+                    path(
+                        operation = "prepare_package_tracking",
+                        title = "查快递",
+                        intentHints = listOf("快递", "包裹", "物流", "菜鸟", "运单"),
+                        targetState = "tracking_ready",
+                        handoffPoint = "查到运单状态后可继续转告或归档",
+                        verificationSignals = listOf("package_card", "tracking_status", "courier_name"),
+                        fallbackChain = listOf("system.launch_app", "semantic.focus_primary_input", "semantic.open_best_candidate"),
+                        riskLevel = "low",
+                        requiresFinalHandoff = false,
+                    ),
+                ),
+            "didi_assistant" to
+                listOf(
+                    path(
+                        operation = "prepare_ride_request",
+                        title = "准备打车",
+                        intentHints = listOf("打车", "滴滴", "网约车", "快车", "专车"),
+                        targetState = "ride_request_ready",
+                        handoffPoint = "下单/支付前由用户确认",
+                        verificationSignals = listOf("origin_input", "destination_input", "estimate_card"),
+                        fallbackChain = listOf("system.launch_app", "semantic.focus_primary_input", "semantic.open_best_candidate"),
+                        riskLevel = "high",
+                    ),
+                ),
+            "bilibili_assistant" to
+                listOf(
+                    path(
+                        operation = "prepare_video_search",
+                        title = "B 站视频检索",
+                        intentHints = listOf("B站", "bilibili", "视频", "UP主", "番剧"),
+                        targetState = "video_results_ready",
+                        handoffPoint = "找到候选视频后可由用户决定播放",
+                        verificationSignals = listOf("search_box", "video_card", "uploader"),
+                        fallbackChain = listOf("system.launch_app", "semantic.focus_primary_input", "semantic.open_best_candidate"),
+                        riskLevel = "low",
+                        requiresFinalHandoff = false,
+                    ),
+                    path(
+                        operation = "prepare_comment_inspection",
+                        title = "评论/弹幕调研",
+                        intentHints = listOf("评论", "弹幕", "高赞"),
+                        targetState = "comment_panel_ready",
+                        handoffPoint = "整理评论证据后由用户确认结论",
+                        verificationSignals = listOf("comment_panel", "hot_comment", "danmu"),
+                        fallbackChain = listOf("system.launch_app", "semantic.open_best_candidate"),
+                        riskLevel = "low",
+                        requiresFinalHandoff = false,
+                    ),
+                ),
+            "xhs_assistant" to
+                listOf(
+                    path(
+                        operation = "prepare_note_research",
+                        title = "小红书笔记调研",
+                        intentHints = listOf("小红书", "笔记", "种草", "测评"),
+                        targetState = "note_results_ready",
+                        handoffPoint = "找到候选笔记后可由用户决定阅读",
+                        verificationSignals = listOf("search_box", "note_card", "author"),
+                        fallbackChain = listOf("system.launch_app", "semantic.focus_primary_input", "semantic.open_best_candidate"),
+                        riskLevel = "low",
+                        requiresFinalHandoff = false,
+                    ),
+                ),
+            "browser_assistant" to
+                listOf(
+                    path(
+                        operation = "prepare_web_research",
+                        title = "网页检索",
+                        intentHints = listOf("浏览器", "网页", "查一下", "搜索"),
+                        targetState = "search_results_ready",
+                        handoffPoint = "整理搜索结果证据后由用户确认结论",
+                        verificationSignals = listOf("search_box", "search_results", "snippet"),
+                        fallbackChain = listOf("system.launch_app", "semantic.focus_primary_input", "semantic.open_best_candidate"),
+                        riskLevel = "low",
+                        requiresFinalHandoff = false,
+                    ),
+                ),
+            "gmail_assistant" to
+                listOf(
+                    path(
+                        operation = "prepare_email_review",
+                        title = "邮件检索/草稿准备",
+                        intentHints = listOf("邮件", "邮箱", "gmail", "回复邮件", "草稿"),
+                        targetState = "email_inspect_or_draft_ready",
+                        handoffPoint = "真实发送由用户在最后一步确认",
+                        verificationSignals = listOf("inbox_list", "compose_panel", "subject_field"),
+                        fallbackChain = listOf("system.launch_app", "semantic.focus_primary_input", "semantic.open_best_candidate"),
+                        riskLevel = "high",
+                    ),
+                ),
         )
 
     fun paths(appId: String): List<ConnectedAppGoldenPath> = pathsByAppId[appId].orEmpty()

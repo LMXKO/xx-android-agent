@@ -7,16 +7,18 @@ object MultiStepTaskEngine {
         observation: ScreenObservation,
         history: List<AgentTurnRecord>,
         resumeContext: ResumeContext = ResumeContext(),
+        targetPackageName: String = "",
     ): TaskPlanState {
         val normalizedTask = task.trim()
         val constraints = TaskIntentParser.parse(normalizedTask)
+        val launchTargetApp = shouldLaunchTargetApp(observation, targetPackageName)
         val base =
             when (resolvePlanFamily(constraints, profileId)) {
-                PlanFamily.SHOPPING -> buildShoppingPlan(normalizedTask, constraints, observation, history)
+                PlanFamily.SHOPPING -> buildShoppingPlan(normalizedTask, constraints, observation, history, launchTargetApp)
                 PlanFamily.NAVIGATION -> buildNavigationPlan(normalizedTask, constraints, observation, history)
                 PlanFamily.MESSAGING -> buildMessagingPlan(normalizedTask, constraints, observation, history)
                 PlanFamily.CONTENT -> buildContentPlan(normalizedTask, constraints, observation, history)
-                PlanFamily.GENERIC -> buildGenericPlan(normalizedTask, constraints, observation, history)
+                PlanFamily.GENERIC -> buildGenericPlan(normalizedTask, constraints, observation, history, launchTargetApp)
             }
         return SuspendResumeEngine.enrich(
             task = normalizedTask,
@@ -32,13 +34,14 @@ object MultiStepTaskEngine {
         constraints: TaskConstraints,
         observation: ScreenObservation,
         history: List<AgentTurnRecord>,
+        launchTargetApp: Boolean,
     ): TaskPlanState {
         val page = observation.pageState.uppercase()
         val enteredQuery = hasEnteredQuery(observation, history, constraints.entryQuery)
         val wantsInfo = wantsInformation(constraints)
         val currentStage =
             when {
-                observation.packageName.isBlank() -> "launch_target_app"
+                launchTargetApp -> "launch_target_app"
                 isSearchEntryPage(observation) && !enteredQuery -> "enter_query"
                 isSearchEntryPage(observation) && enteredQuery -> "submit_query"
                 isResultLikePage(observation) -> "browse_candidates"
@@ -286,11 +289,12 @@ object MultiStepTaskEngine {
         constraints: TaskConstraints,
         observation: ScreenObservation,
         history: List<AgentTurnRecord>,
+        launchTargetApp: Boolean,
     ): TaskPlanState {
         val enteredQuery = hasEnteredQuery(observation, history, constraints.entryQuery)
         val currentStage =
             when {
-                observation.packageName.isBlank() -> "launch_target_app"
+                launchTargetApp -> "launch_target_app"
                 constraints.entryQuery.isNotBlank() && isSearchEntryPage(observation) && !enteredQuery -> "enter_query"
                 constraints.entryQuery.isNotBlank() && isSearchEntryPage(observation) && enteredQuery -> "submit_query"
                 isResultLikePage(observation) || isFeedLikePage(observation) -> "browse_candidates"
@@ -338,6 +342,13 @@ object MultiStepTaskEngine {
                 ),
         )
     }
+
+    private fun shouldLaunchTargetApp(
+        observation: ScreenObservation,
+        targetPackageName: String,
+    ): Boolean =
+        observation.packageName.isBlank() ||
+            (targetPackageName.isNotBlank() && !observation.packageName.equals(targetPackageName, ignoreCase = true))
 
     private fun resolvePlanFamily(
         constraints: TaskConstraints,

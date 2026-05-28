@@ -1,6 +1,7 @@
 package com.lmx.xiaoxuanagent.runtime
 
 import com.lmx.xiaoxuanagent.agent.AgentTurnRecord
+import com.lmx.xiaoxuanagent.agent.CrossAppMission
 import com.lmx.xiaoxuanagent.agent.ResumeContext
 import com.lmx.xiaoxuanagent.safety.PendingSafetyConfirmation
 import com.lmx.xiaoxuanagent.taskprofile.TaskRegistry
@@ -31,6 +32,7 @@ data class SessionResumeSnapshot(
     val resultSnapshot: RuntimeResultSnapshot? = null,
     val takeoverSnapshot: RuntimeTakeoverSnapshot? = null,
     val safety: RuntimeSafetyState = RuntimeSafetyState(),
+    val mission: CrossAppMission? = null,
     val lastTransition: String = "",
     val updatedAtMs: Long = 0L,
 ) {
@@ -287,6 +289,7 @@ object SessionResumeStore {
             resultSnapshot = resultSnapshot,
             takeoverSnapshot = takeoverSnapshot,
             safety = safety,
+            mission = session.mission,
             lastTransition = lastTransition,
             updatedAtMs = updatedAtMs,
         )
@@ -321,6 +324,7 @@ object SessionResumeStore {
             put("result_snapshot", resultSnapshot?.toJson() ?: JSONObject())
             put("takeover_snapshot", takeoverSnapshot?.toJson() ?: JSONObject())
             put("safety", safety.toJson())
+            put("mission", mission?.toJson() ?: JSONObject())
             put("last_transition", lastTransition)
             put("updated_at_ms", updatedAtMs)
         }
@@ -349,6 +353,7 @@ object SessionResumeStore {
             resultSnapshot = json.optJSONObject("result_snapshot").toResultSnapshot(),
             takeoverSnapshot = json.optJSONObject("takeover_snapshot").toTakeoverSnapshot(),
             safety = json.optJSONObject("safety").toSafetyState(),
+            mission = json.optJSONObject("mission").toCrossAppMission(),
             lastTransition = json.optString("last_transition"),
             updatedAtMs = json.optLong("updated_at_ms"),
         )

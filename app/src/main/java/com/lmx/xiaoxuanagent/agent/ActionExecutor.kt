@@ -361,21 +361,39 @@ internal object SystemToolExecutor : AgentToolExecutor {
         service: AccessibilityService,
         packageName: String,
     ): AgentExecutionResult {
-        val intent = AppLaunchResolver.resolve(service.packageManager, packageName)
-        return if (intent != null) {
+        AppLaunchResolver.resolve(service.packageManager, packageName)?.let { intent ->
             service.startActivity(intent)
-            AgentExecutionResult(
+            return AgentExecutionResult(
                 message = "已尝试启动应用 $packageName。",
                 keepRunning = true,
                 requiresObservationCheck = true,
                 recommendedWaitMs = 1_200L,
             )
-        } else {
-            AgentExecutionResult(
-                "找不到应用 $packageName 的可启动入口，可能是应用未安装或包可见性受限。",
-                keepRunning = false,
-            )
         }
+        // 主包名未装时，尝试同 connected app 的备选包名（如 Chrome→Edge/Brave/华为浏览器）。
+        val descriptor =
+            ConnectedAppCatalog.findByPackageName(packageName)
+                ?: ConnectedAppCatalog.descriptors()
+                    .firstOrNull { it.alternatePackageNames.contains(packageName) }
+        if (descriptor != null) {
+            descriptor.candidatePackageNames()
+                .filter { it != packageName }
+                .forEach { alt ->
+                    AppLaunchResolver.resolve(service.packageManager, alt)?.let { intent ->
+                        service.startActivity(intent)
+                        return AgentExecutionResult(
+                            message = "$packageName 未安装，改用同类应用 $alt 启动。",
+                            keepRunning = true,
+                            requiresObservationCheck = true,
+                            recommendedWaitMs = 1_200L,
+                        )
+                    }
+                }
+        }
+        return AgentExecutionResult(
+            "找不到应用 $packageName 的可启动入口，可能是应用未安装或包可见性受限。",
+            keepRunning = false,
+        )
     }
 
     private fun executeGlobalAction(

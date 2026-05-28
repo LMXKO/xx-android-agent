@@ -115,6 +115,12 @@ internal fun SessionCommand.toJson(): JSONObject =
                 put("resume_context", resumeContext.toJson())
                 put("reason", reason)
             }
+            is SessionCommand.AdvanceMissionLeg -> {
+                put("profile_id", profileId)
+                put("target_package_name", targetPackageName)
+                put("task", task)
+                put("reason", reason)
+            }
         }
     }
 
@@ -270,6 +276,7 @@ internal fun RuntimeSession.toJson(): JSONObject =
         put("external_wait_state", externalWaitState?.toJson() ?: JSONObject())
         put("resume_context", resumeContext.toJson())
         put("planning_snapshot", planningSnapshot.toJson())
+        put("mission", mission?.toJson() ?: JSONObject())
     }
 
 internal fun JSONObject?.toRuntimeSession(): RuntimeSession {
@@ -292,6 +299,7 @@ internal fun JSONObject?.toRuntimeSession(): RuntimeSession {
         externalWaitState = optJSONObject("external_wait_state").toRuntimeExternalWaitState(),
         resumeContext = optJSONObject("resume_context").toResumeContext(),
         planningSnapshot = optJSONObject("planning_snapshot").toRuntimePlanningSnapshot(),
+        mission = optJSONObject("mission").toCrossAppMission(),
     )
 }
 

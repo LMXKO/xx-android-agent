@@ -204,7 +204,7 @@ data class AssistantHealthSnapshot(
 )
 
 data class AssistantOsSnapshot(
-    val permissionMode: AssistantPermissionMode = AssistantPermissionMode.ASSISTED,
+    val permissionMode: AssistantPermissionMode = AssistantPermissionMode.HANDS_FREE,
     val safetyMode: AssistantSafetyMode = AssistantSafetyMode.BALANCED,
     val featureFlags: List<AssistantFeatureFlagState> =
         AssistantFeatureFlagKey.entries.map { AssistantFeatureFlagState(it, it.defaultEnabled) },

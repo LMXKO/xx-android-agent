@@ -1,6 +1,7 @@
 package com.lmx.xiaoxuanagent.assistantos
 
 import com.lmx.xiaoxuanagent.runtime.SessionPlatformFacade
+import com.lmx.xiaoxuanagent.runtime.SessionResumeStore
 
 internal object AssistantOsStrategyPolicy {
     fun recordProductShellSync(
@@ -37,13 +38,28 @@ internal object AssistantOsStrategyPolicy {
         )
     }
 
-    fun selectPreferredRestoreSessionIds(): Set<String> =
-        SessionPlatformFacade
-            .readSessionHistory(limit = 8)
-            .entries
-            .filter { it.resumable || it.pendingSafety }
-            .sortedByDescending { it.updatedAtMs }
-            .take(3)
-            .map { it.sessionId }
-            .toSet()
+    fun selectPreferredRestoreSessionIds(): Set<String> {
+        val historyPreferred =
+            SessionPlatformFacade
+                .readSessionHistory(limit = 8)
+                .entries
+                .filter { it.resumable || it.pendingSafety }
+                .sortedByDescending { it.updatedAtMs }
+                .take(3)
+                .map { it.sessionId }
+        // 跨 App mission 还有未跑完的腿 → 优先恢复，确保"长时间"承诺真正成立。
+        val missionInflight =
+            SessionResumeStore
+                .readResumableSnapshots(limit = 8)
+                .asSequence()
+                .filter { snapshot ->
+                    snapshot.mission?.let { mission ->
+                        mission.activeLegIndex in 0 until mission.legs.size
+                    } == true
+                }
+                .sortedByDescending { it.updatedAtMs }
+                .map { it.sessionId }
+                .toList()
+        return (missionInflight + historyPreferred).toSet()
+    }
 }

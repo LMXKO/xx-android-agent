@@ -75,7 +75,7 @@ internal object SessionRuntimeExecutionFacadeSupport {
             taskVerification = taskVerification,
         )
 
-    fun resolveFinishExecutionCompletion(
+    suspend fun resolveFinishExecutionCompletion(
         planningContext: AgentPlanningContext,
         action: AgentAction.Finish,
         beforeObservation: ScreenObservation,

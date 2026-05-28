@@ -83,5 +83,6 @@ internal object SessionRuntimeTransitionFactory {
             externalWaitState = snapshot.externalWaitState,
             resumeContext = snapshot.resumeContext,
             planningSnapshot = snapshot.planningSnapshot,
+            mission = snapshot.mission,
         )
 }

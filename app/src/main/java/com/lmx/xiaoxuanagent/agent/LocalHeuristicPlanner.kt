@@ -18,6 +18,9 @@ class LocalHeuristicPlanner(
         val constraints = TaskIntentParser.parse(task)
         val action =
             when (taskPlanState.currentStage) {
+                "launch_target_app" ->
+                    targetPackageName.takeIf { it.isNotBlank() }?.let { AgentAction.LaunchApp(it) }
+
                 "enter_query", "enter_destination" ->
                     observation.primaryEditableId
                         ?.takeIf { constraints.entryQuery.isNotBlank() || !constraints.destination.isNullOrBlank() }

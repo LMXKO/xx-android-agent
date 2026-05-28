@@ -261,9 +261,9 @@ object AssistantOsStore {
             permissionMode =
                 runCatching {
                     AssistantPermissionMode.valueOf(
-                        json.optString("permission_mode", AssistantPermissionMode.ASSISTED.name),
+                        json.optString("permission_mode", AssistantPermissionMode.HANDS_FREE.name),
                     )
-                }.getOrDefault(AssistantPermissionMode.ASSISTED),
+                }.getOrDefault(AssistantPermissionMode.HANDS_FREE),
             safetyMode =
                 runCatching {
                     AssistantSafetyMode.valueOf(
