@@ -16,6 +16,7 @@ internal fun CrossAppMission.toJson(): JSONObject =
         put("legs", JSONArray().apply { legs.forEach { put(it.toMissionJson()) } })
         put("blackboard", JSONArray().apply { blackboard.forEach { put(it.toPayloadJson()) } })
         put("declared_handoff_fields", JSONArray(declaredHandoffFields.toList()))
+        put("kind", kind)
     }
 
 internal fun JSONObject?.toCrossAppMission(): CrossAppMission? {
@@ -43,6 +44,7 @@ internal fun JSONObject?.toCrossAppMission(): CrossAppMission? {
         activeLegIndex = optInt("active_leg_index").coerceIn(0, legs.size),
         blackboard = blackboard,
         declaredHandoffFields = optJSONArray("declared_handoff_fields").toStringList().toSet(),
+        kind = optString("kind", "general"),
     )
 }
 
@@ -54,6 +56,7 @@ private fun MissionLeg.toMissionJson(): JSONObject =
         put("sub_task", subTask)
         put("intent_type", intentType)
         put("status", status)
+        put("handoff", JSONObject(handoff.mapValues { it.value }))
     }
 
 private fun JSONObject.toMissionLeg(): MissionLeg =
@@ -64,6 +67,10 @@ private fun JSONObject.toMissionLeg(): MissionLeg =
         subTask = optString("sub_task"),
         intentType = optString("intent_type", "shopping"),
         status = optString("status", "pending"),
+        handoff =
+            optJSONObject("handoff")?.let { obj ->
+                buildMap { obj.keys().forEach { key -> put(key, obj.optString(key)) } }
+            } ?: emptyMap(),
     )
 
 private fun TaskResultPayload.toPayloadJson(): JSONObject =

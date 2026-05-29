@@ -94,18 +94,30 @@ object CrossAppMissionEngine {
             goal = trimmed,
             legs = legs,
             declaredHandoffFields = setOf("query", "price"),
+            kind = "compare",
         )
     }
 
     /**
      * 合并各腿结果。[lastPayload] 是最后一腿刚抽取、尚未进黑板的产出。
-     * 黑板按 leg 顺序累积，故 payload[i] 对应 legs[i]。
+     * 按 mission.kind 选择收口形态：compare → 比价结论；general → 通用多腿汇总（不再把所有任务都套成"比价"）。
      */
     fun composeFinalResult(
         mission: CrossAppMission,
         lastPayload: TaskResultPayload?,
     ): TaskResultPayload {
         val payloads = if (lastPayload != null) mission.blackboard + lastPayload else mission.blackboard
+        return if (mission.kind == "compare") {
+            composeCompareResult(mission, payloads)
+        } else {
+            composeGeneralResult(mission, payloads)
+        }
+    }
+
+    private fun composeCompareResult(
+        mission: CrossAppMission,
+        payloads: List<TaskResultPayload>,
+    ): TaskResultPayload {
         val product = TaskIntentParser.parse(mission.goal).entryQuery.ifBlank { mission.goal }
 
         val perApp =
@@ -140,6 +152,60 @@ object CrossAppMissionEngine {
                     TaskResultField(key = "price_${name}", label = "$name 价格", value = priceText)
                 },
         )
+    }
+
+    /** 通用多腿任务收口：按黑板顺序汇总每步产出，并标注未完成的腿数（降级时仍给出可用的部分结果）。 */
+    private fun composeGeneralResult(
+        mission: CrossAppMission,
+        payloads: List<TaskResultPayload>,
+    ): TaskResultPayload {
+        val steps =
+            payloads.mapIndexed { index, payload ->
+                val title = payload.title.ifBlank { "步骤${index + 1}" }
+                val detail = payload.summary.ifBlank { payload.title }.ifBlank { "已完成" }
+                title to detail
+            }
+        val failed = mission.failedLegCount()
+        val summary =
+            buildString {
+                append("已完成跨 App 任务：").append(mission.goal.take(50)).append("。")
+                steps.forEach { (title, detail) ->
+                    append(" ").append(title.take(20)).append("：").append(detail.take(60)).append("。")
+                }
+                if (failed > 0) {
+                    append(" 另有 ").append(failed).append(" 步未完成。")
+                }
+            }
+        return TaskResultPayload(
+            intentType = "cross_app_task",
+            title = mission.goal.take(40),
+            summary = summary,
+            highlights = payloads.flatMap { it.highlights }.distinct().take(6),
+            fields =
+                steps.mapIndexed { index, (title, detail) ->
+                    TaskResultField(key = "step_${index + 1}", label = title.take(20), value = detail.take(80))
+                },
+        )
+    }
+
+    /**
+     * 把上一腿产出抽成**结构化交接槽位**（与 [rewriteSubTaskWithHandoff] 的自然语言注释并存），
+     * 写进下一腿的 [MissionLeg.handoff]，便于下游使用与"下一腿是否真用了该实体"的校验/观测。
+     */
+    fun resolveHandoffFields(
+        mission: CrossAppMission,
+        previousPayload: TaskResultPayload?,
+    ): Map<String, String> {
+        if (previousPayload == null) return emptyMap()
+        val allow = mission.declaredHandoffFields
+        val out = linkedMapOf<String, String>()
+        previousPayload.title.takeIf { it.isNotBlank() }?.let { out["entity"] = it.take(60) }
+        previousPayload.fields.forEach { field ->
+            if (allow.contains(field.key) && field.value.isNotBlank()) {
+                out[field.key] = field.value.take(60)
+            }
+        }
+        return out
     }
 
     /**
@@ -179,7 +245,6 @@ object CrossAppMissionEngine {
             } else {
                 ""
             }
-        val previousAppLabel = previousPayload.title.takeIf { it.isNotBlank() }?.let { "" } ?: ""
         val annotation =
             buildString {
                 append("（参考上一腿：")
@@ -299,7 +364,14 @@ object CrossAppMissionEngine {
             goal = goal,
             legs = legs,
             declaredHandoffFields = handoff,
+            kind = if (looksLikeCompare(goal)) "compare" else "general",
         )
+    }
+
+    private fun looksLikeCompare(goal: String): Boolean {
+        val normalized = goal.lowercase()
+        return compareCues.any { goal.contains(it) } ||
+            (normalized.contains("价格") && (normalized.contains("比") || normalized.contains("对比")))
     }
 
     private fun pickField(

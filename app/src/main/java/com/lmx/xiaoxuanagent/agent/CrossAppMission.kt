@@ -11,6 +11,8 @@ data class MissionLeg(
     val subTask: String,
     val intentType: String = "shopping",
     val status: String = "pending",
+    // 上一腿交接进来的结构化实体槽位（如 query/price/entity），与 subTask 里的自然语言注释并存，便于校验与下游使用。
+    val handoff: Map<String, String> = emptyMap(),
 )
 
 /**
@@ -27,10 +29,15 @@ data class CrossAppMission(
     val activeLegIndex: Int = 0,
     val blackboard: List<TaskResultPayload> = emptyList(),
     val declaredHandoffFields: Set<String> = emptySet(),
+    // mission 类型：compare（电商比价收口）/ general（通用多腿任务收口）。决定 composeFinalResult 的产出形态，
+    // 避免把通用任务都套成"比价"。
+    val kind: String = "general",
 ) {
     fun activeLeg(): MissionLeg? = legs.getOrNull(activeLegIndex)
 
     fun hasNextLeg(): Boolean = activeLegIndex in 0 until (legs.size - 1)
+
+    fun failedLegCount(): Int = legs.count { it.status == "failed" }
 
     /** 记录当前腿产出并推进到下一腿；当前腿标记 done。 */
     fun recordAndAdvance(payload: TaskResultPayload?): CrossAppMission =
@@ -40,6 +47,16 @@ data class CrossAppMission(
             legs =
                 legs.mapIndexed { index, leg ->
                     if (index == activeLegIndex) leg.copy(status = "done") else leg
+                },
+        )
+
+    /** 当前腿无法完成时标记为 failed 并跳到下一腿（mission 级降级，避免在某腿原地无限重试）。 */
+    fun markActiveLegFailed(): CrossAppMission =
+        copy(
+            activeLegIndex = (activeLegIndex + 1).coerceAtMost(legs.size),
+            legs =
+                legs.mapIndexed { index, leg ->
+                    if (index == activeLegIndex) leg.copy(status = "failed") else leg
                 },
         )
 

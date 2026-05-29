@@ -331,7 +331,11 @@ internal object SessionRuntimeExecutionSupport {
                             nextSubTask = nextLegRaw.subTask,
                             previousPayload = extractedResult,
                         )
-                    val nextLeg = nextLegRaw.copy(subTask = injectedSubTask)
+                    val nextLeg =
+                        nextLegRaw.copy(
+                            subTask = injectedSubTask,
+                            handoff = CrossAppMissionEngine.resolveHandoffFields(advanced, extractedResult),
+                        )
                     val missionWithInjection =
                         advanced.copy(
                             legs =
@@ -612,8 +616,20 @@ internal object SessionRuntimeExecutionSupport {
         val loopHardStop = stuckVerdict.stuck && keepRunning && !attemptLoopEscape
 
         val finalKeepRunning = keepRunning && !loopHardStop
+        // mission 级失败降级：若硬停时仍有活跃 mission，按已完成的腿收口出"部分结果"，而不是裸失败。
+        val missionAtTurn = previousSession.mission
+        val missionPartialResult =
+            if (loopHardStop && missionAtTurn?.activeLeg() != null) {
+                CrossAppMissionEngine.composeFinalResult(missionAtTurn, taskResult)
+            } else {
+                null
+            }
+        val effectiveTaskResult = missionPartialResult ?: taskResult
         val finalResult =
             when {
+                missionPartialResult != null && missionAtTurn != null ->
+                    "$result 跨 App 任务在第 ${missionAtTurn.activeLegIndex + 1}/${missionAtTurn.legs.size} 腿停滞，" +
+                        "已收口部分结果：${missionPartialResult.summary.take(140)}"
                 loopHardStop ->
                     "$result 已尝试脱困 $priorLoopEscapes 次仍停滞(${stuckVerdict.pattern})，触发死循环保护并停止。"
                 attemptLoopEscape ->
@@ -652,7 +668,7 @@ internal object SessionRuntimeExecutionSupport {
                     SessionRuntime.buildRuntimeResultSnapshot(
                         lastAction = decision.action.label,
                         finalResult = finalResult,
-                        taskResult = taskResult,
+                        taskResult = effectiveTaskResult,
                         lastError = "",
                         hint = finalResult,
                     ),
