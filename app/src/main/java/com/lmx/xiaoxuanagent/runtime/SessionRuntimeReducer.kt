@@ -145,7 +145,7 @@ object SessionRuntimeReducer {
                 val nextStatusModel = command.disposition.toStatusModel()
                 val nextFingerprints =
                     (session.recentFingerprints + "${command.turnRecord.observationSignature}|${command.turnRecord.action}")
-                        .takeLast(4)
+                        .takeLast(StuckLoopDetector.WINDOW)
                 current.copy(
                     session =
                         session

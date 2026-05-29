@@ -28,6 +28,10 @@ import com.lmx.xiaoxuanagent.safety.SafetyReview
 import kotlinx.coroutines.TimeoutCancellationException
 
 internal object SessionRuntimeExecutionSupport {
+    // 卡死脱困：检测到停滞后，最多自动"返回上一层"尝试脱困的次数，超出再硬停。
+    private const val MAX_LOOP_ESCAPES = 2
+    private const val STUCK_LOOP_ESCAPE_CATEGORY = "stuck_loop_escape"
+
     fun recordPlanningScreenArtifacts(
         planningContext: AgentPlanningContext,
         screenshot: ScreenshotPayload?,
@@ -597,32 +601,50 @@ internal object SessionRuntimeExecutionSupport {
         val previousSession = SessionRuntimeStore.session()
         val appliedResumeContext = previousSession.resumeContext
         val nextFingerprint = "${planningContext.observation.signature}|${decision.action.label}"
-        val nextFingerprints = (previousSession.recentFingerprints + nextFingerprint).takeLast(4)
-        val loopDetected =
-            keepRunning &&
-                nextFingerprints.size == 4 &&
-                nextFingerprints.distinct().size == 1
+        val nextFingerprints = (previousSession.recentFingerprints + nextFingerprint).takeLast(StuckLoopDetector.WINDOW)
+        val stuckVerdict = StuckLoopDetector.detect(nextFingerprints)
+        val priorLoopEscapes =
+            previousSession.history.takeLast(StuckLoopDetector.WINDOW)
+                .count { it.recoveryCategory == STUCK_LOOP_ESCAPE_CATEGORY }
+        // 检测到卡死时：先有限次"返回上一层"脱困（经下一轮 recovery_follow_through 执行），
+        // 仍无效再硬停，而不是一检测到就 Terminate(FAILED)。
+        val attemptLoopEscape = stuckVerdict.stuck && keepRunning && priorLoopEscapes < MAX_LOOP_ESCAPES
+        val loopHardStop = stuckVerdict.stuck && keepRunning && !attemptLoopEscape
 
-        val finalKeepRunning = keepRunning && !loopDetected
+        val finalKeepRunning = keepRunning && !loopHardStop
         val finalResult =
-            if (loopDetected) {
-                "$result 已触发死循环保护，停止自动任务。"
-            } else {
-                result
+            when {
+                loopHardStop ->
+                    "$result 已尝试脱困 $priorLoopEscapes 次仍停滞(${stuckVerdict.pattern})，触发死循环保护并停止。"
+                attemptLoopEscape ->
+                    "$result 检测到停滞(${stuckVerdict.pattern})，自动返回上一层尝试脱困(第 ${priorLoopEscapes + 1} 次)。"
+                else -> result
             }
+        val effectiveTurnRecord =
+            if (attemptLoopEscape) {
+                turnRecord.copy(
+                    result = finalResult,
+                    recoveryCategory = STUCK_LOOP_ESCAPE_CATEGORY,
+                    recoverySummary = "检测到 ${stuckVerdict.pattern} 停滞，返回上一层脱困。",
+                    suggestedRecoveryAction = AgentAction.Back.label,
+                )
+            } else {
+                turnRecord
+            }
+        val effectiveClearSignature = resetObservationSignatureForNextPlan || attemptLoopEscape
         val finalDisposition =
             if (finalKeepRunning) {
                 SessionTurnDisposition.ContinueExecution()
             } else {
-                SessionTurnDisposition.Terminate(deriveFinishTerminalReason(decision, loopDetected))
+                SessionTurnDisposition.Terminate(deriveFinishTerminalReason(decision, loopHardStop))
             }
         val finalStatus = finalDisposition.toStatusModel().code
         SessionRuntimeStore.dispatch(
             SessionCommand.FinishTurn(
-                turnRecord = turnRecord,
+                turnRecord = effectiveTurnRecord,
                 disposition = finalDisposition,
                 nextPlanEligibleAtMs = System.currentTimeMillis() + nextPlanDelayMs.coerceAtLeast(0L),
-                clearLastObservationSignature = resetObservationSignatureForNextPlan,
+                clearLastObservationSignature = effectiveClearSignature,
                 clearResumeContext = true,
                 keepRunning = finalKeepRunning,
                 clearSafety = !finalKeepRunning,
@@ -659,7 +681,7 @@ internal object SessionRuntimeExecutionSupport {
                     turn = session.turns,
                     toolName = decision.action.toolName,
                     summary = finalResult,
-                    forceNotebookUpdate = !finalKeepRunning || loopDetected || recoveryDiagnosis != null,
+                    forceNotebookUpdate = !finalKeepRunning || loopHardStop || recoveryDiagnosis != null,
                 )
             if (memoryPolicyDecision.shouldEnqueueNotebookUpdate) {
                 val worker =
@@ -804,13 +826,13 @@ internal object SessionRuntimeExecutionSupport {
                 finalResult = finalResult,
                 taskResult = taskResult,
                 keepRunning = finalKeepRunning,
-                loopDetected = loopDetected,
+                loopDetected = loopHardStop,
             ),
         )
 
         return TurnCompletion(
             keepRunning = finalKeepRunning,
-            loopDetected = loopDetected,
+            loopDetected = loopHardStop,
             turn = session.turns,
             finalResult = finalResult,
         )
