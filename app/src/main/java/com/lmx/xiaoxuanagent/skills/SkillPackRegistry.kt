@@ -93,6 +93,14 @@ internal object SkillPackRegistry {
                 riskLevel = SkillRiskLevel.CONFIRM,
                 skills = listOf(MessagingSkill),
             ),
+            SkillPackRegistration(
+                id = "reminder_scheduling_pack",
+                title = "Reminder & Scheduling",
+                providerId = "scheduling_provider",
+                layer = SkillLayer.DOMAIN,
+                riskLevel = SkillRiskLevel.LOW,
+                skills = listOf(ReminderSchedulingSkill),
+            ),
         )
 
     fun allSkills(): List<ExecutableSkill> =
