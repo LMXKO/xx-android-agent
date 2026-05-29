@@ -292,6 +292,8 @@ object MemoryRecallIndexStore {
         if (title.contains(loweredQuery)) score += 8
         if (content.contains(loweredQuery)) score += 10
         score += entry.tokens.count { it in queryTokens } * 3
+        // 语义相似度加成：用 token/bigram 重叠系数，让近义/共享子串（如"蓝牙耳机"↔"无线耳机"）也能召回。
+        score += (MemoryTextMatching.similarity(loweredQuery, "$title $content") * 6).toInt()
         if (profileId.isNotBlank() && entry.profileId == profileId) score += 3
         if (entry.updatedAt > 0L) {
             val ageMs = System.currentTimeMillis() - entry.updatedAt

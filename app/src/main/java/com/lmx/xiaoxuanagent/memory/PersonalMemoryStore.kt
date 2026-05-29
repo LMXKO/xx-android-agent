@@ -1323,22 +1323,32 @@ object PersonalMemoryStore {
         profileId: String,
         values: List<String>,
     ) {
+        val now = System.currentTimeMillis()
         values
             .map { it.trim().take(120) }
             .filter { it.isNotBlank() }
             .distinct()
             .forEach { fact ->
-                facts.put(
-                    JSONObject().apply {
-                        put("profile_id", profileId)
-                        put("content", fact)
-                        put("timestamp", System.currentTimeMillis())
-                    },
-                )
+                // 与已有事实近重复 → 合并强化（bump 时间 + hits），而非新增重复条目。
+                val similarIndex = MemoryConsolidation.findSimilarIndex(facts, fact)
+                if (similarIndex >= 0) {
+                    facts.optJSONObject(similarIndex)?.let { existing ->
+                        existing.put("timestamp", now)
+                        existing.put("hits", existing.optInt("hits", 1) + 1)
+                    }
+                } else {
+                    facts.put(
+                        JSONObject().apply {
+                            put("profile_id", profileId)
+                            put("content", fact)
+                            put("timestamp", now)
+                            put("hits", 1)
+                        },
+                    )
+                }
             }
-        while (facts.length() > MAX_FACTS) {
-            facts.remove(0)
-        }
+        // 超容量时按价值淘汰（命中多/近的保留），而非一律删最旧。
+        MemoryConsolidation.evictToCapacity(facts, MAX_FACTS, now)
     }
 
     private fun upsertFact(
