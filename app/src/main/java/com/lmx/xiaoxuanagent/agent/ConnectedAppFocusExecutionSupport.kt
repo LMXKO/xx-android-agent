@@ -27,8 +27,44 @@ internal object ConnectedAppFocusExecutionSupport {
             "meituan_assistant" -> buildMeituanPlan(service, action)
             "shopping_search", "jd_assistant", "pdd_assistant", "xianyu_assistant", "alipay_assistant" ->
                 buildGenericGoldenPathPlan(service, action)
-            else -> null
+            // 这两个有专用执行器（executeSettings / executeAmap），交给 execute 的 when 处理。
+            "system_settings_assistant", "amap_assistant" -> null
+            // 其余连接器（菜鸟/滴滴/B站/小红书/浏览器/Gmail 等）：有 golden path 走 golden path，
+            // 否则退化为"拉起 App + 交接"，而不是此前的 execute else 直接"暂未实现"硬失败。
+            else -> buildGenericGoldenPathPlan(service, action) ?: buildGenericLaunchPlan(service, action)
         }
+
+    /** 通用拉起兜底：无结构化 golden path 的连接器也至少打开 App + 塞查询词 + 交接，由 GUI 主回路继续。 */
+    private fun buildGenericLaunchPlan(
+        service: AccessibilityService,
+        action: AgentAction.ExecuteConnectedAppAction,
+    ): ConnectedAppExecutionPlan? {
+        val descriptor = ConnectedAppCatalog.findByAppId(action.appId) ?: return null
+        val launchIntent =
+            service.packageManager.getLaunchIntentForPackage(descriptor.packageName)?.apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            } ?: return null
+        val primary = action.primary.trim().ifBlank { action.note.trim() }
+        val querySeeded = seedClipboard(service, "${action.appId}_query", primary)
+        val detailLines =
+            buildList {
+                add("connected_app=${action.appId}")
+                add("operation=${action.operation}")
+                add("mode=launch_then_handoff")
+                primary.takeIf { it.isNotBlank() }?.let { add("primary=${it.take(64)}") }
+                if (querySeeded) add("clipboard_seed=primary")
+                add("handoff=continue_in_app_via_gui")
+                add("note=该连接器暂无结构化 golden path，已拉起 App 并交接，由 GUI 主回路继续。")
+            }
+        return ConnectedAppExecutionPlan(
+            intent = launchIntent,
+            successMessage = "已打开${descriptor.title}并交接，请在应用内继续（暂无结构化路径，转 GUI 推进）。",
+            detailLines = detailLines,
+            groundingSource = "connected_app_${action.appId}_launch",
+            receiptState = "launched_handoff",
+            handoffRequired = true,
+        )
+    }
 
     private fun buildWechatPlan(
         service: AccessibilityService,

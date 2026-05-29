@@ -71,7 +71,8 @@ object PlatformConnectedAppToolService {
         return when (descriptor.appId) {
             "system_settings_assistant" -> executeSettings(service, action)
             "amap_assistant" -> executeAmap(service, action)
-            else -> AgentExecutionResult("connected app ${descriptor.appId} 暂未实现。", keepRunning = false)
+            // buildPlan 已对其余连接器提供 golden-path / 拉起兜底；走到这里说明目标 App 无法打开（多半未安装）。
+            else -> AgentExecutionResult("未能打开 connected app ${descriptor.title}（可能未安装或被禁用）。", keepRunning = false)
         }
     }
 

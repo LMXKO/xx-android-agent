@@ -1349,13 +1349,24 @@ internal object OnlineToolExecutor : AgentToolExecutor {
             summary = lines.firstOrNull().orEmpty().ifBlank { query.take(96) },
             detailLines = lines,
         )
+        // 不再把"未配置/被拒/出错"谎报成"已执行"。未配置时给出明确受体并标记失败回执，让规划器据此换路径。
+        val unavailable = lines.size == 1 && lines.first() == "web_search_base_url_missing"
+        val errored = lines.any { it.startsWith("search_error=") || it.contains("web_query_denied") }
+        val message =
+            when {
+                unavailable -> "网页搜索不可用：未配置 AGENT_WEB_SEARCH_BASE_URL，请改用其他信息来源或在屏内继续。"
+                errored -> "网页搜索失败：${lines.firstOrNull().orEmpty().take(80)}"
+                lines.isEmpty() -> "网页搜索未返回结果。"
+                else -> "已执行网页搜索：${query.take(48)}。"
+            }
         return AgentExecutionResult(
-            message = if (lines.isEmpty()) "网页搜索未返回结果。" else "已执行网页搜索：${query.take(48)}。",
+            message = message,
             keepRunning = true,
             requiresObservationCheck = false,
-            shouldImmediateReplan = true,
+            shouldImmediateReplan = !(unavailable || errored),
             groundingSource = "platform_web_search",
             resolvedTargetText = query,
+            toolRuntimeState = if (unavailable || errored) "error" else "",
             toolRuntimeDetailLines = lines,
         )
     }
