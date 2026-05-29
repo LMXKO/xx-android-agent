@@ -146,17 +146,17 @@ object ActionVerifier {
                     afterVisualContext = afterVisualContext,
                     afterFrames = afterFrames,
                 )
-            is AgentAction.CopyText -> ActionVerificationResult(true, "已复制文本到剪贴板。", false)
+            is AgentAction.CopyText -> verifyByExecutionOutcome(executionResult, "已复制文本到剪贴板。")
             is AgentAction.ReadSessionHistory -> ActionVerificationResult(true, "已读取会话历史。", false)
             is AgentAction.SearchArtifacts -> ActionVerificationResult(true, "已检索 artifact 证据。", false)
             is AgentAction.RecallMemory -> ActionVerificationResult(true, "已召回长期记忆。", false)
             AgentAction.ReadSessionNotebook -> ActionVerificationResult(true, "已读取 session notebook。", false)
             is AgentAction.WriteSessionNote -> ActionVerificationResult(true, "已写入 session notebook。", false)
             is AgentAction.SearchTools -> ActionVerificationResult(true, "已检索工具能力。", false)
-            is AgentAction.WebSearch -> ActionVerificationResult(true, "已完成网页搜索。", false)
-            is AgentAction.WebFetch -> ActionVerificationResult(true, "已抓取网页内容。", false)
+            is AgentAction.WebSearch -> verifyByExecutionOutcome(executionResult, "已完成网页搜索。")
+            is AgentAction.WebFetch -> verifyByExecutionOutcome(executionResult, "已抓取网页内容。")
             is AgentAction.ReadConnectedAppCapabilities -> ActionVerificationResult(true, "已读取 connected app 能力。", false)
-            is AgentAction.ExecuteConnectedAppAction -> ActionVerificationResult(true, "已执行 connected app 动作。", false)
+            is AgentAction.ExecuteConnectedAppAction -> verifyByExecutionOutcome(executionResult, "已执行 connected app 动作。")
             AgentAction.ReadTodoBoard -> ActionVerificationResult(true, "已读取 todo board。", false)
             is AgentAction.WriteTodoBoard -> ActionVerificationResult(true, "已更新 todo board。", false)
             is AgentAction.DelegateLocalAgent -> ActionVerificationResult(true, "已委派本地 worker。", false)
@@ -194,34 +194,34 @@ object ActionVerifier {
                 )
             is AgentAction.Swipe -> verifyScroll(before, after, successMessage = "手势滑动后页面内容已变化。")
             AgentAction.Back -> verifyBack(before, after)
-            AgentAction.Home -> verifyGlobalAction(after, "已切回桌面或系统首页。")
-            AgentAction.Notifications -> verifyGlobalAction(after, "已切换到通知相关界面。")
-            AgentAction.QuickSettings -> verifyGlobalAction(after, "已切换到快捷设置界面。")
-            AgentAction.Recents -> verifyGlobalAction(after, "已切换到最近任务界面。")
-            is AgentAction.OpenSettings -> verifyGlobalAction(after, "已切换到系统设置相关界面。")
-            is AgentAction.ShareText -> verifyGlobalAction(after, "已打开系统分享相关界面。")
-            is AgentAction.CreateAlarm -> verifyGlobalAction(after, "已切换到系统闹钟相关界面。")
-            is AgentAction.CreateTimer -> verifyGlobalAction(after, "已切换到系统计时器相关界面。")
-            AgentAction.OpenStopwatch -> verifyGlobalAction(after, "已切换到系统秒表相关界面。")
-            is AgentAction.InsertCalendarEvent -> verifyGlobalAction(after, "已切换到系统日历相关界面。")
-            is AgentAction.DialNumber -> verifyGlobalAction(after, "已切换到拨号相关界面。")
-            is AgentAction.DraftSms -> verifyGlobalAction(after, "已切换到短信草稿相关界面。")
-            is AgentAction.LookupContact -> ActionVerificationResult(true, "已读取联系人候选。", false)
-            is AgentAction.ReadSms -> ActionVerificationResult(true, "已读取短信摘要。", false)
-            is AgentAction.ReadCallLog -> ActionVerificationResult(true, "已读取通话记录摘要。", false)
-            is AgentAction.ReadNotifications -> ActionVerificationResult(true, "已读取通知摘要。", false)
-            is AgentAction.ReplyNotification -> ActionVerificationResult(true, "已尝试回复通知。", false)
-            is AgentAction.MediaControl -> ActionVerificationResult(true, "已发送媒体控制。", false)
-            is AgentAction.AdjustVolume -> ActionVerificationResult(true, "已调节系统音量。", false)
-            is AgentAction.ReadDeviceStatus -> ActionVerificationResult(true, "已读取设备状态。", false)
-            is AgentAction.ReadCurrentLocation -> ActionVerificationResult(true, "已读取当前位置。", false)
-            is AgentAction.SetBrightness -> ActionVerificationResult(true, "已尝试设置屏幕亮度。", false)
-            is AgentAction.SetDoNotDisturb -> ActionVerificationResult(true, "已尝试设置免打扰模式。", false)
-            is AgentAction.SetBatterySaver -> ActionVerificationResult(true, "已处理省电模式调整。", false)
+            AgentAction.Home -> verifyGlobalAction(before, after, "已切回桌面或系统首页。")
+            AgentAction.Notifications -> verifyGlobalAction(before, after, "已切换到通知相关界面。")
+            AgentAction.QuickSettings -> verifyGlobalAction(before, after, "已切换到快捷设置界面。")
+            AgentAction.Recents -> verifyGlobalAction(before, after, "已切换到最近任务界面。")
+            is AgentAction.OpenSettings -> verifyGlobalAction(before, after, "已切换到系统设置相关界面。")
+            is AgentAction.ShareText -> verifyGlobalAction(before, after, "已打开系统分享相关界面。")
+            is AgentAction.CreateAlarm -> verifyGlobalAction(before, after, "已切换到系统闹钟相关界面。")
+            is AgentAction.CreateTimer -> verifyGlobalAction(before, after, "已切换到系统计时器相关界面。")
+            AgentAction.OpenStopwatch -> verifyGlobalAction(before, after, "已切换到系统秒表相关界面。")
+            is AgentAction.InsertCalendarEvent -> verifyGlobalAction(before, after, "已切换到系统日历相关界面。")
+            is AgentAction.DialNumber -> verifyGlobalAction(before, after, "已切换到拨号相关界面。")
+            is AgentAction.DraftSms -> verifyGlobalAction(before, after, "已切换到短信草稿相关界面。")
+            is AgentAction.LookupContact -> verifyByExecutionOutcome(executionResult, "已读取联系人候选。")
+            is AgentAction.ReadSms -> verifyByExecutionOutcome(executionResult, "已读取短信摘要。")
+            is AgentAction.ReadCallLog -> verifyByExecutionOutcome(executionResult, "已读取通话记录摘要。")
+            is AgentAction.ReadNotifications -> verifyByExecutionOutcome(executionResult, "已读取通知摘要。")
+            is AgentAction.ReplyNotification -> verifyByExecutionOutcome(executionResult, "已尝试回复通知。")
+            is AgentAction.MediaControl -> verifyByExecutionOutcome(executionResult, "已发送媒体控制。")
+            is AgentAction.AdjustVolume -> verifyByExecutionOutcome(executionResult, "已调节系统音量。")
+            is AgentAction.ReadDeviceStatus -> verifyByExecutionOutcome(executionResult, "已读取设备状态。")
+            is AgentAction.ReadCurrentLocation -> verifyByExecutionOutcome(executionResult, "已读取当前位置。")
+            is AgentAction.SetBrightness -> verifyByExecutionOutcome(executionResult, "已尝试设置屏幕亮度。")
+            is AgentAction.SetDoNotDisturb -> verifyByExecutionOutcome(executionResult, "已尝试设置免打扰模式。")
+            is AgentAction.SetBatterySaver -> verifyByExecutionOutcome(executionResult, "已处理省电模式调整。")
             AgentAction.OpenPowerDialog -> ActionVerificationResult(true, "已打开系统电源对话框。", false)
-            is AgentAction.OpenDevicePanel -> verifyGlobalAction(after, "已打开设备控制面板。")
+            is AgentAction.OpenDevicePanel -> verifyGlobalAction(before, after, "已打开设备控制面板。")
             is AgentAction.CaptureScreenshot -> ActionVerificationResult(true, "已记录屏幕截图。", false)
-            is AgentAction.CapturePhoto -> verifyGlobalAction(after, "已打开系统相机。")
+            is AgentAction.CapturePhoto -> verifyGlobalAction(before, after, "已打开系统相机。")
             AgentAction.PressEnter ->
                 verifyClick(
                     before = before,
@@ -507,14 +507,57 @@ object ActionVerifier {
     }
 
     private fun verifyGlobalAction(
+        before: ScreenObservation,
         after: ScreenObservation,
         successMessage: String,
-    ): ActionVerificationResult =
-        ActionVerificationResult(
-            verified = after.signature.isNotBlank(),
-            message = successMessage,
-            shouldImmediateReplan = false,
+    ): ActionVerificationResult {
+        // 此前只判 after.signature 非空（能读到任意屏即算成功）。改为要求前台包变化或屏幕签名变化，
+        // 否则视为未确认（动作可能没真正切到目标界面）。
+        val changed =
+            after.signature.isNotBlank() &&
+                (after.packageName != before.packageName || after.signature != before.signature)
+        return ActionVerificationResult(
+            verified = changed,
+            message = if (changed) successMessage else "$successMessage（但界面未见明显变化，待确认）",
+            shouldImmediateReplan = !changed,
         )
+    }
+
+    /**
+     * 按执行回执判定那些"效果不在前台屏幕上"或"依赖运行时权限"的动作（系统设置/媒体/通知回复/网络检索/
+     * 连接器/系统数据读取）。取代此前无条件 verified=true 的橡皮图章：工具回执为 error/rejected 或命中
+     * 权限拒绝时判未确认。executionResult 为空或成功态时仍判已确认（保持兼容）。
+     */
+    private fun verifyByExecutionOutcome(
+        executionResult: AgentExecutionResult?,
+        successMessage: String,
+    ): ActionVerificationResult {
+        val state = executionResult?.toolRuntimeState.orEmpty()
+        val text =
+            listOf(
+                executionResult?.toolRuntimeErrorMessage,
+                executionResult?.toolRuntimeRejectedMessage,
+                executionResult?.toolRuntimeSummary,
+                executionResult?.message,
+            ).joinToString(" ") { it.orEmpty() }
+        val failed =
+            state == "error" ||
+                state == "rejected" ||
+                text.contains("permission_required") ||
+                text.contains("未授权") ||
+                text.contains("无权限")
+        return if (failed) {
+            ActionVerificationResult(
+                verified = false,
+                message =
+                    executionResult?.message?.takeIf { it.isNotBlank() }
+                        ?: "动作未确认成功（回执=${state.ifBlank { "无" }}）。",
+                shouldImmediateReplan = false,
+            )
+        } else {
+            ActionVerificationResult(true, successMessage, false)
+        }
+    }
 
     private fun observationMeaningfullyChanged(
         before: ScreenObservation,

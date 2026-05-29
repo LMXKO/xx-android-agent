@@ -536,7 +536,7 @@ internal object GuiActionExecutor : AgentToolExecutor {
     ): AgentExecutionResult =
         when (action) {
             is AgentAction.Click -> executeClick(context, action.elementId)
-            is AgentAction.SetText -> executeSetText(context.indexedObservation, action.elementId, action.text)
+            is AgentAction.SetText -> executeSetText(context, action.elementId, action.text)
             is AgentAction.Scroll -> executeScroll(context, action.elementId, action.direction)
             is AgentAction.LongClick -> executeLongClick(context.indexedObservation, action.elementId)
             is AgentAction.TapPoint -> executeTapPoint(context.service, action.x, action.y)
@@ -664,6 +664,22 @@ internal object GuiActionExecutor : AgentToolExecutor {
                 entityFingerprintAnchors = fingerprintAnchors,
             )
         }
+        // 点击前刷新节点，用当前状态而非规划快照的过期 bounds/可见性。若节点仍在树中但已不可见
+        // （多半已滚动出屏），不点击幽灵节点，改为重新观察后规划。
+        val nodeRefreshed = node?.refresh() ?: false
+        if (node != null && nodeRefreshed && !node.isVisibleToUser) {
+            return AgentExecutionResult(
+                message = "目标 $elementId 已不在可见区域（可能已滚动），重新观察后再规划。",
+                keepRunning = true,
+                requiresObservationCheck = false,
+                shouldImmediateReplan = true,
+                groundingSource = "tree_stale_offscreen",
+                resolvedElementId = elementId,
+                resolvedTargetText = elementObservation?.text.orEmpty(),
+                resolvedTargetBounds = elementObservation?.bounds.orEmpty(),
+                resolvedContainerId = elementObservation?.containerId.orEmpty(),
+            )
+        }
         val target = ActionExecutionSupport.resolveClickableTarget(node)
         val success = target?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true
         val gestureFallback =
@@ -757,10 +773,11 @@ internal object GuiActionExecutor : AgentToolExecutor {
     }
 
     private fun executeSetText(
-        indexedObservation: IndexedScreenObservation,
+        context: AgentToolExecutionContext,
         elementId: String,
         text: String,
     ): AgentExecutionResult {
+        val indexedObservation = context.indexedObservation
         val node = indexedObservation.nodesById[elementId]
         val elementObservation =
             indexedObservation.observation.elements.firstOrNull { it.id == elementId }
@@ -770,17 +787,26 @@ internal object GuiActionExecutor : AgentToolExecutor {
                 node = node,
                 indexedObservation = indexedObservation,
             )
+        target?.refresh()
         val focused = target?.performAction(AccessibilityNodeInfo.ACTION_FOCUS) == true
-        val success = target?.setTextValue(text) == true
+        var success = target?.setTextValue(text) == true
+        var inputMethod = if (success) "set_text" else ""
+        // 回退 1：点击聚焦后重试 setText（部分自绘 / WebView 输入框需先点击获焦点）。
+        if (!success && target != null && target.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
+            success = target.setTextValue(text)
+            if (success) inputMethod = "click_then_set_text"
+        }
+        // 回退 2：剪贴板粘贴（ACTION_SET_TEXT 被输入框拦截时的兜底）。
+        if (!success && target != null && text.isNotEmpty() && pasteTextViaClipboard(context.service, target, text)) {
+            success = true
+            inputMethod = "clipboard_paste"
+        }
         return AgentExecutionResult(
             message = when {
                 node == null -> "写入失败：未找到元素 $elementId。"
                 target == null -> "写入失败：$elementId 附近没有可编辑节点。"
-                else -> {
-                    val resolvedId =
-                        indexedObservation.nodesById.entries.firstOrNull { it.value === target }?.key ?: "derived"
-                    "已尝试写入 $elementId -> $resolvedId，focus=$focused setText=$success。"
-                }
+                success -> "已写入 $elementId（focus=$focused, 方式=$inputMethod）。"
+                else -> "写入失败：$elementId 的 setText 与剪贴板粘贴均未生效。"
             },
             keepRunning = success || target != null,
             requiresObservationCheck = success,
@@ -790,9 +816,11 @@ internal object GuiActionExecutor : AgentToolExecutor {
             groundingSource =
                 when {
                     node == null -> "tree_missing_input"
+                    !success -> "tree_editable_failed"
+                    inputMethod == "clipboard_paste" -> "tree_editable_paste"
+                    inputMethod == "click_then_set_text" -> "tree_editable_click_retry"
                     target === node -> "tree_editable"
-                    target != null -> "tree_editable_derived"
-                    else -> "tree_editable_failed"
+                    else -> "tree_editable_derived"
                 },
             resolvedTargetText = text,
             resolvedTargetBounds =
@@ -805,6 +833,18 @@ internal object GuiActionExecutor : AgentToolExecutor {
             targetContextHints = (elementObservation?.neighborTexts.orEmpty() + elementObservation?.visualDescriptorTokens.orEmpty()).take(4),
         )
     }
+
+    private fun pasteTextViaClipboard(
+        service: AccessibilityService,
+        target: AccessibilityNodeInfo,
+        text: String,
+    ): Boolean =
+        runCatching {
+            val clipboard = service.getSystemService(ClipboardManager::class.java) ?: return false
+            clipboard.setPrimaryClip(ClipData.newPlainText("agent_input", text))
+            target.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+            target.performAction(AccessibilityNodeInfo.ACTION_PASTE)
+        }.getOrDefault(false)
 
     private fun executeScroll(
         context: AgentToolExecutionContext,
