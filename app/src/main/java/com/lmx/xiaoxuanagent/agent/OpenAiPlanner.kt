@@ -41,6 +41,9 @@ class OpenAiPlanner(
         private const val HEAVY_FALLBACK_CONNECT_TIMEOUT_MS = 12_000
         private const val HEAVY_FALLBACK_READ_TIMEOUT_MS = 45_000
         private const val MAX_PROMPT_ESTIMATED_TOKENS = 6_400
+        // 密集页附图上限：放宽此前写死的 14，让常见电商/信息流密集页（~15-30 元素）也能把截图喂给
+        // 远端 vision LLM；上限防止超大页面 token 膨胀（截图已 960px/JPEG q70 压缩）。
+        private const val DENSE_SCREENSHOT_ELEMENT_CAP = 32
     }
 
     internal data class PlannerRequestStrategy(
@@ -1105,6 +1108,12 @@ class OpenAiPlanner(
         screenshot: ScreenshotPayload? = null,
     ): PlannerRequestStrategy = resolvePlannerRequestStrategy(observation, visualContext, screenshot)
 
+    internal fun debugShouldAttachScreenshot(
+        observation: ScreenObservation,
+        visualContext: VisualPerceptionContext,
+        screenshot: ScreenshotPayload?,
+    ): Boolean = shouldAttachScreenshot(observation, visualContext, screenshot)
+
     internal fun debugMemoryContextPayload(
         memoryContext: PlanningMemoryContext,
     ): Map<String, List<String>> = memoryContextPayload(memoryContext)
@@ -1168,9 +1177,12 @@ class OpenAiPlanner(
         screenshot: ScreenshotPayload?,
     ): Boolean {
         if (screenshot == null) return false
+        if (BuildConfig.AGENT_FORCE_SCREENSHOT) return true
         if (observation.elements.size <= 8) return true
         if (visualContext.groundedTexts.isNotEmpty()) return true
-        return visualContext.visualHints.isNotEmpty() && observation.elements.size <= 14
+        // 有视觉线索（OCR 命中树外文本，典型密集/自绘页）时附图，门控从 14 放宽到 DENSE_SCREENSHOT_ELEMENT_CAP，
+        // 修复"密集页 LLM 看不到图、只看 a11y JSON"。
+        return visualContext.visualHints.isNotEmpty() && observation.elements.size <= DENSE_SCREENSHOT_ELEMENT_CAP
     }
 
     private fun resolvePlannerRequestStrategy(

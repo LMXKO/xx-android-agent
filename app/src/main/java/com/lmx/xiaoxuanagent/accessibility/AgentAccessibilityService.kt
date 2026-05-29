@@ -31,6 +31,8 @@ import com.lmx.xiaoxuanagent.runtime.SessionRuntime
 import com.lmx.xiaoxuanagent.runtime.SessionRuntimeServiceDriver
 import com.lmx.xiaoxuanagent.runtime.SessionRuntimeStore
 import com.lmx.xiaoxuanagent.runtime.SessionRuntimeTurnDependencies
+import com.lmx.xiaoxuanagent.runtime.SessionTargetAppLauncher
+import com.lmx.xiaoxuanagent.AppLaunchResolver
 import com.lmx.xiaoxuanagent.runtime.AppPageState
 import com.lmx.xiaoxuanagent.runtime.VerificationCommand
 import com.lmx.xiaoxuanagent.runtime.isTakeoverReason
@@ -94,6 +96,9 @@ class AgentAccessibilityService : AccessibilityService(), CurrentScreenObservati
         activeService = this
         AppRuntimeContext.init(applicationContext)
         DebugAgentStore.setAccessibilityServiceConnected(true)
+        SessionTargetAppLauncher.register { packageName, reason ->
+            bringTargetAppToForeground(packageName, reason)
+        }
         Log.d(TAG, "service connected")
         DebugAgentStore.appendLog("无障碍服务 onServiceConnected。")
         SessionExecutionCoordinatorStore.sync(reason = "accessibility_service_connected")
@@ -256,9 +261,37 @@ class AgentAccessibilityService : AccessibilityService(), CurrentScreenObservati
         DebugAgentStore.setAccessibilityServiceConnected(false)
         if (activeService === this) {
             activeService = null
+            SessionTargetAppLauncher.unregister()
         }
         serviceScope.cancel()
         super.onDestroy()
+    }
+
+    /**
+     * 把目标 App 拉到前台。后台恢复（心跳/boot）成功后由 [SessionTargetAppLauncher] 调用——
+     * 无障碍服务在后台不受 Android 后台启动 Activity 限制，可直接 startActivity，
+     * 复用 [ActionExecutor.executeLaunchApp] 同款 NEW_TASK Intent 机制。
+     */
+    fun bringTargetAppToForeground(
+        packageName: String,
+        reason: String,
+    ): Boolean {
+        if (packageName.isBlank() || packageName == applicationContext.packageName) {
+            return false
+        }
+        val intent =
+            AppLaunchResolver.resolve(packageManager, packageName) ?: run {
+                DebugAgentStore.appendLog("后台恢复：无法解析目标 App 启动 Intent pkg=$packageName")
+                return false
+            }
+        return try {
+            startActivity(intent)
+            DebugAgentStore.appendLog("后台恢复：已自动拉起目标 App pkg=$packageName reason=$reason")
+            true
+        } catch (error: Exception) {
+            DebugAgentStore.appendLog("后台恢复：拉起目标 App 失败 pkg=$packageName err=${error.message}")
+            false
+        }
     }
 
     suspend fun executeExternalAction(

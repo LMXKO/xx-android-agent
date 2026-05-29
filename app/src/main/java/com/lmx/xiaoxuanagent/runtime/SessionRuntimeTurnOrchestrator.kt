@@ -1280,7 +1280,88 @@ internal object SessionRuntimeTurnOrchestrator {
                     "afterSig=${afterObservation?.observation?.signature ?: "-"}",
             )
         }
+        maybeAutoCompensate(planningContext, action, completion, dependencies)
         return completion
+    }
+
+    private val sideEffectingActionTypes =
+        setOf(
+            AgentAction.SetText::class,
+            AgentAction.PopulatePrimaryInput::class,
+            AgentAction.PasteClipboard::class,
+            AgentAction.Click::class,
+            AgentAction.LongClick::class,
+            AgentAction.TapPoint::class,
+            AgentAction.SubmitPrimaryAction::class,
+        )
+
+    private fun isSideEffectingAction(action: AgentAction): Boolean = action::class in sideEffectingActionTypes
+
+    internal fun debugIsSideEffectingAction(action: AgentAction): Boolean = isSideEffectingAction(action)
+
+    /**
+     * 失败收口处的自动回滚（#3）。仅在"有副作用动作 + 验证失败诊断存在 + 恢复引擎无可行下一步（死胡同）"
+     * 时触发，避免与重试/恢复抢方向。只自动执行**低风险可逆**计划（approvalRequired=false，如 restore_text /
+     * backtrack）；高风险计划（支付/不可逆）不自动跑，记日志/trace 交人工，符合既有确认策略。
+     * 每个回滚动作同样过 [handleSafetyGate]，保证回滚本身也受安全策略约束。
+     */
+    private suspend fun maybeAutoCompensate(
+        planningContext: AgentPlanningContext,
+        action: AgentAction,
+        completion: ExecutionCompletion,
+        dependencies: SessionRuntimeTurnDependencies,
+    ) {
+        if (!isSideEffectingAction(action)) return
+        if (completion.recoveryDiagnosis == null) return
+        if (completion.suggestedRecoveryAction.isNotBlank()) return
+        val plan =
+            SessionCompensationPlanner.derivePlan(
+                sessionId = planningContext.sessionId,
+                turn = planningContext.turn,
+                task = planningContext.task,
+                beforeObservation = planningContext.observation,
+                action = action,
+            ) ?: return
+        val plannedSteps = plan.steps.filter { it.status == "planned" }
+        if (plannedSteps.isEmpty()) return
+        if (plan.approvalRequired) {
+            dependencies.logLine("检测到失败且回滚为高风险(${plan.safetyTier})，不自动执行，建议人工撤销：${plan.summary}")
+            PlatformTraceStore.record(
+                category = "auto_compensation_requires_approval",
+                sessionId = planningContext.sessionId,
+                summary = "turn=${planningContext.turn} | ${plan.summary}",
+            )
+            return
+        }
+        val currentObservation = dependencies.observeCurrentScreen() ?: return
+        var applied = 0
+        for (step in plannedSteps) {
+            val gatePassed =
+                handleSafetyGate(
+                    planningContext = planningContext,
+                    action = step.action,
+                    executableIndexedObservation = currentObservation,
+                    queuedMessage = "",
+                    progressMessage = "自动回滚：${step.title}",
+                    logLine = dependencies.logLine,
+                )
+            if (!gatePassed) {
+                dependencies.logLine("回滚步骤被安全策略阻断：${step.action.label}")
+                break
+            }
+            val result = runCatching { dependencies.executeAction(currentObservation, step.action) }.getOrNull()
+            if (result?.keepRunning == true) {
+                applied += 1
+            } else if (plan.transactionMode == "ordered_strict") {
+                break
+            }
+        }
+        dependencies.logLine("自动回滚完成：applied=$applied/${plannedSteps.size} | ${plan.summary}")
+        PlatformTraceStore.record(
+            category = "auto_compensation",
+            sessionId = planningContext.sessionId,
+            summary = "turn=${planningContext.turn} applied=$applied/${plannedSteps.size} | ${plan.summary}",
+        )
     }
 
     private suspend fun continueWithImmediateReplan(

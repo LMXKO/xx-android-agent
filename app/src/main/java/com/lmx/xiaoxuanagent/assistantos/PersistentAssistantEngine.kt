@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
+import android.os.Build
 import com.lmx.xiaoxuanagent.memory.PersonalMemoryStore
 import com.lmx.xiaoxuanagent.runtime.AppRuntimeContext
 import com.lmx.xiaoxuanagent.runtime.DebugAgentStore
@@ -20,11 +21,13 @@ import com.lmx.xiaoxuanagent.runtime.SessionExecutionCoordinatorStore
 import com.lmx.xiaoxuanagent.runtime.SessionPlatformFacade
 import com.lmx.xiaoxuanagent.runtime.SessionResumeStore
 import com.lmx.xiaoxuanagent.runtime.SessionRuntime
+import com.lmx.xiaoxuanagent.runtime.SessionRuntimeStore
 import com.lmx.xiaoxuanagent.runtime.SessionWorkerStore
 import kotlinx.coroutines.runBlocking
 
 object PersistentAssistantEngine {
     private const val HEARTBEAT_INTERVAL_MS = 15 * 60 * 1000L
+    private const val EXACT_WAKE_REQUEST_CODE = 4102
     private const val WORKER_RETRY_DEFER_MS = 10 * 60 * 1000L
     private const val PROVIDER_FAILURE_COOLDOWN_MS = 15 * 60 * 1000L
     private const val WORKER_LEASE_OWNER = "assistant_engine_proactive"
@@ -111,11 +114,17 @@ object PersistentAssistantEngine {
                 assistantSnapshot = assistantSnapshot,
                 externalSignals = AssistantExternalSignalStore.readAll(limit = 48),
             )
-        if (triggers.isNotEmpty()) {
+        // 登记长程等待：挂起会话 → 目标 App 的 APP_FOREGROUND 信号绑定 + 到点定时恢复，
+        // 并按最近一个定时任务排一个精确闹钟（修复"被杀后/跨天不会自动续跑"）。
+        val waitSync = SessionWaitScheduler.syncSuspendedSessionBindings(resumableSnapshots)
+        AppRuntimeContext.get()?.let { scheduleNextExactWake(it) }
+        if (triggers.isNotEmpty() || waitSync.signalBindings > 0 || waitSync.timeResumes > 0) {
             AssistantOsController.recordEntry(
                 surface = AssistantEntrySurface.SYSTEM,
                 action = "trigger_sync",
-                summary = "$reason | triggers=${triggers.size}",
+                summary =
+                    "$reason | triggers=${triggers.size} " +
+                        "signal_waits=${waitSync.signalBindings} time_resumes=${waitSync.timeResumes}",
             )
         }
     }
@@ -409,9 +418,41 @@ object PersistentAssistantEngine {
             )
         taskQueueSnapshot.dispatchCandidates.forEach { candidate ->
             val task = candidate.task
-            if (task.type == AssistantProactiveTaskType.APPROVAL_FOLLOW_UP || task.type == AssistantProactiveTaskType.MEMORY_NUDGE) {
+            // 定时恢复（SCHEDULED_TASK / time_resume）：经协调器 bootstrap 续跑，
+            // 复用后台自动拉起目标 App 的路径（#2A），而非走只翻状态的 capability 派发。
+            if (SessionWaitScheduler.isTimeResumeTask(task)) {
+                val resumedSessionId =
+                    task.sessionId.takeIf { it.isNotBlank() }?.let { sid ->
+                        SessionExecutionCoordinatorStore.tryBootstrapNextRunnableSession(
+                            preferredSessionIds = setOf(sid),
+                            reason = "wait_time_due",
+                        )
+                    }.orEmpty()
+                if (resumedSessionId.isNotBlank()) {
+                    AssistantSignalWaitStore.clearSession(task.sessionId)
+                    AssistantProactiveTaskStore.markCompleted(task.id)
+                    AssistantOsController.recordEntry(
+                        surface = AssistantEntrySurface.SYSTEM,
+                        action = "proactive_time_resume",
+                        summary = "${candidate.lane} | resumed ${task.sessionId}",
+                    )
+                } else {
+                    AssistantProactiveTaskStore.defer(task.id, deferByMs = WORKER_RETRY_DEFER_MS)
+                }
                 return@forEach
             }
+            // APPROVAL_FOLLOW_UP：仅当目标会话仍在等待确认时才发提醒，否则视为已了结。
+            // （此前两类任务被无条件 return@forEach 跳过，等于定时跟进从不真正执行。）
+            if (task.type == AssistantProactiveTaskType.APPROVAL_FOLLOW_UP) {
+                val stillAwaiting =
+                    task.sessionId.isNotBlank() &&
+                        SessionRuntimeStore.readSession(task.sessionId).safety.awaitingConfirmation
+                if (!stillAwaiting) {
+                    AssistantProactiveTaskStore.markCompleted(task.id)
+                    return@forEach
+                }
+            }
+            // MEMORY_NUDGE 无前置条件，直接走下面的 dispatch。
             val workerId = task.metadata["worker_id"].orEmpty()
             val worker = workerId.takeIf { it.isNotBlank() }?.let { id ->
                 SessionWorkerStore.readAll(limit = 80).firstOrNull { it.workerId == id }
@@ -536,6 +577,33 @@ object PersistentAssistantEngine {
 
             AssistantSignalProviderGateAction.ALLOW -> Unit
         }
+        // 信号未携带 sessionId 时，尝试解析等待绑定，把它定向到正在等该 App 的挂起会话并直接经
+        // 协调器恢复（修复"通知/前台事件无法唤醒挂起会话"）。
+        if (signal.sessionId.isBlank()) {
+            val binding = SessionWaitScheduler.resolveSignalBinding(signal)
+            if (binding != null) {
+                val resumedSessionId =
+                    SessionExecutionCoordinatorStore.tryBootstrapNextRunnableSession(
+                        preferredSessionIds = setOf(binding.sessionId),
+                        reason = "signal_wait:${signal.type.name.lowercase()}",
+                    )
+                if (resumedSessionId.isNotBlank()) {
+                    AssistantSignalWaitStore.clearSession(binding.sessionId)
+                    AssistantExternalSignalStore.markConsumed(signal.id)
+                    AssistantSignalProviderStore.markSignalProcessed(
+                        providerId = providerId,
+                        success = true,
+                        reason = "resume_bound_session:${binding.sessionId}",
+                    )
+                    AssistantOsController.recordEntry(
+                        surface = AssistantEntrySurface.SYSTEM,
+                        action = "external_${signal.type.name.lowercase()}_resume_bound",
+                        summary = "resumed ${binding.sessionId} | ${signal.summary}",
+                    )
+                    return true
+                }
+            }
+        }
         val providerState = AssistantSignalProviderStore.read(providerId)
         val routingDecision =
             AssistantTriggerRoutingPolicy.route(
@@ -641,5 +709,32 @@ object PersistentAssistantEngine {
             HEARTBEAT_INTERVAL_MS,
             pendingIntent,
         )
+        scheduleNextExactWake(context)
+    }
+
+    /**
+     * 为最近一个未来定时任务（如到点续跑会话）排一个精确闹钟，避免只能等 15min 粗轮询。
+     * Android 12+ 若未授予精确闹钟权限则回落到 setAndAllowWhileIdle（Doze 下仍可唤醒，精度略降）。
+     */
+    private fun scheduleNextExactWake(context: Context) {
+        val alarmManager = context.getSystemService(AlarmManager::class.java) ?: return
+        val nextWakeAtMs = SessionWaitScheduler.computeNextWakeAtMs() ?: return
+        if (nextWakeAtMs <= System.currentTimeMillis()) return
+        val pendingIntent =
+            PendingIntent.getBroadcast(
+                context,
+                EXACT_WAKE_REQUEST_CODE,
+                Intent(context, AssistantHeartbeatReceiver::class.java).setAction(AssistantHeartbeatReceiver.ACTION_HEARTBEAT),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        val canExact =
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
+        runCatching {
+            if (canExact) {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextWakeAtMs, pendingIntent)
+            } else {
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextWakeAtMs, pendingIntent)
+            }
+        }
     }
 }

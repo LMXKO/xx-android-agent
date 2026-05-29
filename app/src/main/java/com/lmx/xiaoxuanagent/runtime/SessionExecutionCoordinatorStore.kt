@@ -399,15 +399,44 @@ object SessionExecutionCoordinatorStore {
             )
             return false
         }
+        // 捕获自动拉起 directive：必须在 continueAgent 前读，因为 continue 会改写
+        // lastTransition，使 resolveBootstrapAutoLaunchDirective 失效。directive 自带
+        // gating（仅 bootstrap_from_resume_snapshot + paused/waiting_external + 未待确认时非空）。
+        val launchDirective = SessionRuntime.resolveBootstrapAutoLaunchDirective()
         if (SessionRuntime.shouldAutoContinueBootstrappedSession()) {
             SessionRuntime.continueAgent()
         }
+        bringBootstrappedTargetAppToForeground(launchDirective, candidate.sessionId, reason)
         PlatformTraceStore.record(
             category = "execution_scheduler_restore",
             sessionId = candidate.sessionId,
             summary = "$reason | restored ${candidate.source.name.lowercase()}",
         )
         return true
+    }
+
+    /**
+     * 后台恢复成功后把目标 App 拉到前台，让无障碍事件重新驱动主回路（修复"半自动续跑"）。
+     * 仅当 [SessionRuntime.resolveBootstrapAutoLaunchDirective] 返回非空（即刚从 resume 快照
+     * 恢复、会话处于 paused/waiting_external 且未待确认）时才拉起。
+     */
+    private fun bringBootstrappedTargetAppToForeground(
+        launchDirective: TargetAppLaunchDirective?,
+        sessionId: String,
+        reason: String,
+    ) {
+        val packageName = launchDirective?.targetPackageName?.takeIf { it.isNotBlank() } ?: return
+        val launched = SessionTargetAppLauncher.launch(packageName, "$reason | ${launchDirective.reason}")
+        PlatformTraceStore.record(
+            category =
+                if (launched) {
+                    "execution_scheduler_target_app_launch"
+                } else {
+                    "execution_scheduler_target_app_launch_unavailable"
+                },
+            sessionId = sessionId,
+            summary = "$reason | pkg=$packageName launched=$launched",
+        )
     }
 
     private fun createLease(
